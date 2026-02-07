@@ -1,0 +1,74 @@
+[
+  {
+    "name": "Average Recovery Rate",
+    "value": 85.0375607358906,
+    "unit": "%",
+    "target": 85,
+    "status": "good",
+    "trend": null,
+    "timestamp": null
+  },
+  {
+    "name": "Average Specific Energy",
+    "value": 0.11,
+    "unit": "kWh/m\u00b3",
+    "target": 0.15,
+    "status": "good",
+    "trend": null,
+    "timestamp": null
+  },
+  {
+    "name": "Average Cycle Duration",
+    "value": 0.95,
+    "unit": "hours",
+    "target": 1.0,
+    "status": "good",
+    "trend": null,
+    "timestamp": null
+  },
+  {
+    "name": "Filtration Cycles per Week",
+    "value": 166.54069266174855,
+    "unit": "cycles/week",
+    "target": null,
+    "status": null,
+    "trend": null,
+    "timestamp": null
+  },
+  {
+    "name": "Chemical Cleaning Frequency",
+    "value": 5,
+    "unit": "cleanings/week",
+    "target": null,
+    "status": null,
+    "trend": null,
+    "timestamp": null
+  },
+  {
+    "name": "Current TMP",
+    "value": 3.79,
+    "unit": "bar",
+    "target": 6,
+    "status": "good",
+    "trend": null,
+    "timestamp": null
+  },
+  {
+    "name": "Reversible Fouling Rate",
+    "value": 0.0196,
+    "unit": "bar/day",
+    "target": null,
+    "status": null,
+    "trend": null,
+    "timestamp": null
+  },
+  {
+    "name": "Irreversible Fouling Rate",
+    "value": 0.024,
+    "unit": "bar/day",
+    "target": null,
+    "status": null,
+    "trend": null,
+    "timestamp": null
+  }
+]

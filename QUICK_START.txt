@@ -1,0 +1,74 @@
+═══════════════════════════════════════════════════════════════════
+  QUICK START - Auto-Update Dashboard
+═══════════════════════════════════════════════════════════════════
+
+Your CapNF dashboard now has two automation modes:
+
+═══════════════════════════════════════════════════════════════════
+MODE 1: AUTO-WATCHER (Recommended for ongoing monitoring)
+═══════════════════════════════════════════════════════════════════
+
+📂 Double-click: start_auto_watcher.bat
+
+What happens:
+  ✓ Monitors Data\ folder continuously
+  ✓ Detects new .tsv files automatically
+  ✓ Runs pipeline when data is added
+  ✓ Deploys to GitHub Pages automatically
+  ✓ Dashboard updates online in 2-5 minutes
+
+Your workflow:
+  1. Start the watcher once (keep window open)
+  2. Drop .tsv files into Data\ folder whenever you have new data
+  3. Go to your dashboard URL - it's already updated!
+
+Dashboard URL: https://YOUR_USERNAME.github.io/capnf-dashboard/
+
+Keep the watcher window minimized - don't close it!
+
+═══════════════════════════════════════════════════════════════════
+MODE 2: MANUAL RUN (For one-time updates)
+═══════════════════════════════════════════════════════════════════
+
+📂 Double-click: Run_CapNF_Pipeline.bat
+
+What happens:
+  ✓ Runs pipeline once on current data
+  ✓ Auto-deploys to GitHub Pages
+  ✓ Opens dashboard locally in browser
+  ✓ Dashboard updates online in ~1 minute
+
+Your workflow:
+  1. Add all your .tsv files to Data\ folder
+  2. Run the batch file
+  3. Wait for completion
+  4. Dashboard is live online!
+
+═══════════════════════════════════════════════════════════════════
+FIRST TIME SETUP REQUIRED
+═══════════════════════════════════════════════════════════════════
+
+Before auto-deployment works, you need to:
+
+1. Install watchdog library:
+   pip install watchdog
+
+2. Set up GitHub Pages (one-time, ~10 minutes):
+   → Open GITHUB_SETUP.txt for step-by-step instructions
+
+3. Update YOUR_USERNAME in these files:
+   • auto_update_dashboard.py
+   • start_auto_watcher.bat
+   • Run_CapNF_Pipeline.bat
+
+═══════════════════════════════════════════════════════════════════
+FILES CREATED
+═══════════════════════════════════════════════════════════════════
+
+✓ auto_update_dashboard.py  - Main monitoring service
+✓ start_auto_watcher.bat    - Launch script for auto-watcher
+✓ GITHUB_SETUP.txt          - Detailed GitHub Pages setup guide
+✓ QUICK_START.txt           - This file
+✓ Run_CapNF_Pipeline.bat    - Updated with auto-deployment
+
+═══════════════════════════════════════════════════════════════════

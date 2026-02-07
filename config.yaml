@@ -1,0 +1,336 @@
+# Membrane Filtration Analytics Pipeline Configuration
+# PWN CapNF System - Configuration File
+
+# ==============================================================================
+# DATA PATHS
+# ==============================================================================
+paths:
+  data_folder: "Data"
+  output_folder: "outputs"
+  plots_folder: "combined_data_plots"
+  
+  # Intermediate parquet files
+  raw_data: "outputs/01_raw.parquet"
+  validated_data: "outputs/02_validated.parquet"
+  processed_data: "outputs/03_processed.parquet"
+  processed_viz_data: "outputs/03_processed_viz.parquet"
+  features_data: "outputs/04_features.parquet"
+  fouling_metrics_data: "outputs/05_fouling_metrics.parquet"
+  cycles_data: "outputs/06_cycles.parquet"
+  cycle_summary_data: "outputs/06_cycle_summary.parquet"
+  kpis_json: "outputs/07_kpis.json"
+  alerts_json: "outputs/07_alerts.json"
+  forecast_json: "outputs/07_forecast.json"
+  permeability_forecast_json: "outputs/07_permeability_forecast.json"
+
+# ==============================================================================
+# DATA VALIDATION - BANDWIDTH FILTERS
+# ==============================================================================
+# Remove outliers outside acceptable operational ranges
+validation:
+  bandwidth_filters:
+    TMP:
+      min: 0
+      max: 8
+      unit: "bar"
+      description: "Trans-Membrane Pressure"
+    
+    "Permeability TC":
+      min: 0
+      max: 20
+      unit: "LMH/bar"
+      description: "Temperature-Corrected Permeability"
+    
+    "Mem. retention":
+      min: 0
+      max: 50
+      unit: "%"
+      description: "Membrane Retention"
+    
+    "Sys. retention":
+      min: 0
+      max: 50
+      unit: "%"
+      description: "System Retention"
+    
+    Flux:
+      min: 0
+      max: 30
+      unit: "L/m²/h"
+      description: "Permeate Flux"
+    
+    "01-TIT-01":
+      min: -10
+      max: 30
+      unit: "°C"
+      description: "Temperature"
+    
+    Recovery:
+      min: 0
+      max: 100
+      unit: "%"
+      description: "Recovery Rate"
+    
+    "Net recovery":
+      min: 0
+      max: 100
+      unit: "%"
+      description: "Net Recovery Rate"
+    
+    Specific_power:
+      min: 0
+      max: 0.5
+      unit: "kWh/m³"
+      description: "Specific Energy Consumption"
+    
+    Vcrossflow:
+      min: 0
+      max: 50
+      unit: "m/s"
+      description: "Crossflow Velocity"
+  
+  # Required columns for analysis
+  required_columns:
+    - "TimeStamp"
+    - "TMP"
+    - "Permeability TC"
+    - "Flux"
+    - "01-TIT-01"
+  
+  # Timestamp gap detection (in minutes)
+  max_timestamp_gap: 5  # Expected sampling interval is 5 seconds
+  
+  # Missing value thresholds
+  max_missing_percentage: 10  # Reject column if >10% missing
+
+# ==============================================================================
+# PREPROCESSING
+# ==============================================================================
+preprocessing:
+  # Data filtering for visualization
+  baseline_start: "2026-01-28 15:10:00"  # Filter visualization data from this date
+  
+  # Downsampling for visualization (LTTB algorithm)
+  downsample_limits:
+    individual_plots: 10000
+    dashboard: 5000
+    combined_view: 8000
+  
+  # Simple Moving Average (SMA) windows
+  sma_windows:
+    individual_plots: 50      # points
+    dashboard: 30             # points
+    combined_view: 40         # points
+    time_based: "30min"       # Alternative: time-based SMA
+  
+  # Gap filling strategy
+  gap_filling:
+    method: "forward_fill"    # Options: forward_fill, interpolate, drop
+    max_fill_minutes: 5       # Only fill gaps shorter than this
+
+# ==============================================================================
+# FEATURE ENGINEERING
+# ==============================================================================
+feature_engineering:
+  # Rolling window statistics (for trend analysis)
+  rolling_windows:
+    - "6h"
+    - "12h"
+    - "24h"
+  
+  # Derivative calculations
+  calculate_derivatives: true
+  derivative_window: "5min"
+  
+  # Temperature normalization reference
+  reference_temperature: 10  # °C
+
+# ==============================================================================
+# FOULING METRICS
+# ==============================================================================
+fouling:
+  # TMP slope calculation
+  tmp_slope:
+    calculate_global: true
+    rolling_windows:
+      - "6h"
+      - "12h"
+      - "24h"
+    
+    # Fouling rate classification
+    thresholds:
+      low: 0.005        # bar/hour
+      medium: 0.02      # bar/hour
+      high: 0.05        # bar/hour
+  
+  # Permeability decline
+  permeability_decline:
+    threshold: 10  # % decline to flag
+    window: "7d"   # Baseline window (first week)
+    baseline_start: "2026-01-28 15:00:00"  # Start of baseline period
+  
+  # Membrane area (update with actual value if known)
+  membrane_area: 1.0  # m² (placeholder - update with actual value)
+
+# ==============================================================================
+# FILTRATION CYCLE DETECTION
+# ==============================================================================
+filtration_detection:
+  # Primary method: Active program number
+  program_number:
+    enabled: true
+    filtration_program: 10     # Program number for filtration mode
+    backwash_program: 21       # Program number for backwashing
+    chemical_cleaning_program: 32  # Program number for chemical cleaning
+  
+  # Backup method: TMP drop (if program number not available)
+  tmp_drop:
+    threshold_percent: 4     # % TMP drop
+    window_minutes: 10        # Within this time window
+  
+  chemical_timer:
+    increment_threshold: 0    # Any positive increment indicates cleaning
+  
+  # Minimum cycle duration
+  min_cycle_duration: "30min"    # Ignore very short cycles
+  
+  # Cycle effectiveness
+  effectiveness:
+    min_recovery_percent: 70  # Flag cycles with <70% TMP recovery
+    permeability_recovery: 80 # % permeability restoration target
+
+# ==============================================================================
+# KPI & ALERTING
+# ==============================================================================
+kpis:
+  # Target operational values
+  targets:
+    recovery_rate: 85         # % target
+    specific_energy: 0.15     # kWh/m³ target
+    cycle_duration: 1.0        # hours target
+    tmp_max: 6              # bar (trigger cleaning before reaching 8)
+  
+  # Alert thresholds
+  alerts:
+    tmp_slope:
+      warning: 0.01           # bar/hour
+      critical: 0.05          # bar/hour
+    
+    permeability_decline:
+      warning: 10             # % decline
+      critical: 20            # % decline
+    
+    retention_drop:
+      warning: 5              # % drop from baseline
+      critical: 10            # % drop (contamination risk)
+    
+    cleaning_effectiveness:
+      warning: 70             # % TMP recovery
+      critical: 50            # % TMP recovery
+    
+    specific_energy:
+      warning: 0.2            # kWh/m³
+      critical: 0.35           # kWh/m³
+
+# ==============================================================================
+# FORECASTING
+# ==============================================================================
+forecasting:
+  # TMP growth prediction
+  tmp_forecast:
+    model: "linear"  # Options: linear, exponential, polynomial, ml_random_forest, ml_gradient_boosting, ml_xgboost
+    forecast_horizon: "7d"    # Predict 7 days ahead
+    confidence_level: 0.95
+    data_start: "2026-01-28 15:10:00"  # Start date for forecast data (baseline period)
+    
+    # ML-specific settings
+    ml_settings:
+      test_size: 0.2  # 20% of data for testing
+      include_additional_features: true  # Use permeability, flux, etc. if available
+      n_estimators: 100  # Number of trees (for ensemble methods)
+      max_depth: 15  # Maximum tree depth
+  
+  # Permeability decline forecast
+  permeability_forecast:
+    enabled: true
+    model: "linear"  # or "linear", "exponential", "ml_gradient_boosting", "ml_xgboost"
+    forecast_horizon: "7d"
+    confidence_level: 0.95
+    data_start: "2026-01-28 15:10:00"  # Optional: filter baseline period
+  
+    ml_settings:  # Optional for ML models
+      test_size: 0.2
+      include_additional_features: true
+      n_estimators: 100
+      max_depth: 15
+
+# ==============================================================================
+# VISUALIZATION
+# ==============================================================================
+visualization:
+  # Color palette (professional)
+  colors:
+    - "#1f77b4"  # blue
+    - "#2ca02c"  # green
+    - "#d62728"  # red
+    - "#ff7f0e"  # orange
+    - "#9467bd"  # purple
+    - "#8c564b"  # brown
+    - "#e377c2"  # pink
+    - "#7f7f7f"  # gray
+    - "#bcbd22"  # yellow-green
+    - "#17becf"  # cyan
+  
+  temperature_color: "#ff6b6b"
+  
+  # Plot dimensions
+  plot_sizes:
+    individual_height: 700
+    dashboard_height: 900
+    combined_height: 800
+  
+  # Font settings
+  fonts:
+    family: "Arial, sans-serif"
+    title_size: 26
+    axis_title_size: 18
+    tick_size: 14
+  
+  # Range selector buttons
+  time_ranges:
+    - {count: 1, label: "1h", step: "hour"}
+    - {count: 6, label: "6h", step: "hour"}
+    - {count: 12, label: "12h", step: "hour"}
+    - {count: 1, label: "1d", step: "day"}
+    - {count: 7, label: "1w", step: "day"}
+    - {count: 1, label: "1m", step: "month"}
+    - {label: "All", step: "all"}
+  
+  # Dashboard layout
+  dashboard:
+    max_panels: 4
+    show_temperature_overlay: true
+
+# ==============================================================================
+# PIPELINE EXECUTION
+# ==============================================================================
+pipeline:
+  # Module execution flags (for debugging/testing)
+  run_modules:
+    ingestion: true
+    validation: true
+    preprocessing: true
+    feature_engineering: true
+    fouling_metrics: true
+    cleaning_analysis: true
+    kpi_engine: true
+    dashboard: true
+  
+  # Performance options
+  parallel_processing: false  # Future: enable parallel processing
+  verbose: true               # Print detailed progress
+  save_intermediate: true     # Save parquet files after each stage
+  
+  # Error handling
+  continue_on_error: false    # Stop pipeline on first error
+  log_file: "outputs/pipeline.log"

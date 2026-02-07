@@ -1,0 +1,29 @@
+# Membrane Filtration Analytics Pipeline
+# Python Dependencies
+
+# Core data processing
+pandas>=2.0.0
+numpy>=1.24.0
+pyarrow>=12.0.0  # For parquet support
+
+# Machine Learning
+scikit-learn>=1.3.0  # For ML-based forecasting
+xgboost>=2.0.0  # For gradient boosting models
+
+# Visualization
+plotly>=5.14.0
+
+# Configuration
+pyyaml>=6.0
+
+# Excel output (optional, for legacy compatibility)
+openpyxl>=3.1.0
+
+# Scientific computing
+scipy>=1.10.0  # For advanced statistics (optional)
+
+# Utilities
+python-dateutil>=2.8.2
+
+# File monitoring (for auto-update service)
+watchdog>=3.0.0  # For monitoring Data/ folder changes

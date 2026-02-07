@@ -1,0 +1,16 @@
+{
+  "parameter": "Permeability TC",
+  "model_type": "linear",
+  "forecast_horizon_days": 7.0,
+  "current_value": 8.26,
+  "predicted_value": 8.072805634003602,
+  "prediction_date": "2026-02-13 12:22:45.600000",
+  "confidence_level": 0.95,
+  "lower_bound": 7.589144588461128,
+  "upper_bound": 8.556466679546077,
+  "r_squared": 0.07842726368527708,
+  "message": "WARNING: Permeability TC forecasted to decline to 8.1 LMH/bar within 7.0 days",
+  "time_to_threshold": -6854.523679104393,
+  "threshold_value": 200.0,
+  "threshold_date": "2007-05-02 23:48:39.725380480"
+}
