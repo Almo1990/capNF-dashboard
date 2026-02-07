@@ -1,12 +1,15 @@
 @echo off
+setlocal
 echo ===============================================================
 echo     PWN CapNF - Membrane Filtration Analytics Pipeline        
 echo ===============================================================
 echo.
 
-cd /d "c:\Users\abusa\OneDrive - PWN\Documenten\R&D PWN-Almo\1 - Research\4 - Reserach places\1 - PWN\2 - Digitalization\Membrane filtration digitalization\CapNF"
+cd /d "%~dp0"
 
-C:\ProgramData\anaconda3\python.exe main.py
+set "PYTHON_EXE=C:\Users\Almohanad\anaconda3\python.exe"
+
+"%PYTHON_EXE%" main.py
 
 if %errorlevel% == 0 (
     echo.
@@ -27,14 +30,14 @@ if %errorlevel% == 0 (
         
         if %errorlevel% == 0 (
             echo ✅ Deployed to GitHub Pages successfully!
-            echo 🌐 Dashboard will be live at: https://YOUR_USERNAME.github.io/capnf-dashboard/
+            echo 🌐 Dashboard will be live at: https://Almo1990.github.io/capnf-dashboard/
             echo    (Wait ~1 minute for GitHub to process the update)
         ) else (
             REM Try master branch if main doesn't exist
             git push origin master >nul 2>&1
             if %errorlevel% == 0 (
                 echo ✅ Deployed to GitHub Pages successfully!
-                echo 🌐 Dashboard will be live at: https://YOUR_USERNAME.github.io/capnf-dashboard/
+                echo 🌐 Dashboard will be live at: https://Almo1990.github.io/capnf-dashboard/
             ) else (
                 echo ⚠️  Git push skipped (no remote configured or not authenticated)
                 echo    To enable auto-deployment, set up GitHub Pages (see GITHUB_SETUP.txt)

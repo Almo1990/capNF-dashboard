@@ -64,7 +64,7 @@ class DataFileHandler(FileSystemEventHandler):
                 self.deploy_to_github()
                 print("\n" + "=" * 60)
                 print("✅ SUCCESS! Dashboard is now live and updated")
-                print("🌐 View at: https://YOUR_USERNAME.github.io/capnf-dashboard/")
+                print("🌐 View at: https://Almo1990.github.io/capnf-dashboard/")
                 print("=" * 60 + "\n")
             except Exception as e:
                 print(f"\n❌ Error during processing: {e}")
@@ -91,9 +91,14 @@ class DataFileHandler(FileSystemEventHandler):
         print("✅ Pipeline completed successfully\n")
 
     def deploy_to_github(self):
-        """Deploy updated files to GitHub Pages"""
+        """Deploy updated dashboard files to GitHub Pages (gh-pages branch)"""
         print("☁️ Step 2/2: Deploying to GitHub Pages...")
         print("-" * 60)
+
+        plots_dir = os.path.join(self.base_path, "combined_data_plots")
+        if not os.path.exists(plots_dir):
+            print("⚠️ Warning: combined_data_plots/ folder not found")
+            return
 
         # Check if git is configured
         result = subprocess.run(
@@ -102,49 +107,94 @@ class DataFileHandler(FileSystemEventHandler):
 
         if result.returncode != 0:
             print("⚠️ Warning: Git repository not initialized")
-            print("To enable auto-deployment, initialize git:")
-            print("  git init")
-            print(
-                "  git remote add origin https://github.com/YOUR_USERNAME/capnf-dashboard.git"
-            )
             return
 
-        # Add files
+        # First, commit source changes to main branch
         subprocess.run(
-            ["git", "add", "combined_data_plots/*", "outputs/*.json"],
+            ["git", "add", "combined_data_plots/", "outputs/*.json"],
             cwd=self.base_path,
             capture_output=True,
         )
-
-        # Commit
         commit_msg = f"Auto-update: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         subprocess.run(
-            ["git", "commit", "-m", commit_msg], cwd=self.base_path, capture_output=True
+            ["git", "commit", "-m", commit_msg],
+            cwd=self.base_path,
+            capture_output=True,
         )
-
-        # Push
-        result = subprocess.run(
+        subprocess.run(
             ["git", "push", "origin", "main"],
             cwd=self.base_path,
             capture_output=True,
-            text=True,
         )
 
-        if result.returncode != 0:
-            # Try 'master' branch if 'main' doesn't exist
-            result = subprocess.run(
-                ["git", "push", "origin", "master"],
-                cwd=self.base_path,
-                capture_output=True,
-                text=True,
+        # Now deploy to gh-pages branch
+        # Use a temporary directory approach to avoid disrupting the working tree
+        import tempfile
+        import shutil
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            # Clone the repo into a temp directory (shallow, just gh-pages)
+            clone_result = subprocess.run(
+                [
+                    "git", "clone", "--branch", "gh-pages", "--single-branch",
+                    "--depth", "1", self.base_path, tmp_dir,
+                ],
+                capture_output=True, text=True,
             )
 
-        if result.returncode == 0:
-            print("✅ Deployed to GitHub Pages")
-            print("   Dashboard will be live in ~1 minute")
-        else:
-            print("⚠️ Push failed - you may need to push manually")
-            print(f"   Error: {result.stderr}")
+            if clone_result.returncode != 0:
+                print("⚠️ gh-pages branch not found, creating it...")
+                # Initialize a fresh repo in temp dir
+                subprocess.run(["git", "init"], cwd=tmp_dir, capture_output=True)
+                subprocess.run(
+                    ["git", "checkout", "--orphan", "gh-pages"],
+                    cwd=tmp_dir, capture_output=True,
+                )
+                # Set the remote
+                subprocess.run(
+                    ["git", "remote", "add", "origin",
+                     "https://github.com/Almo1990/capnf-dashboard.git"],
+                    cwd=tmp_dir, capture_output=True,
+                )
+
+            # Remove old HTML files from temp dir
+            for f in os.listdir(tmp_dir):
+                if f.endswith(".html"):
+                    os.remove(os.path.join(tmp_dir, f))
+
+            # Copy all HTML files from combined_data_plots/ to temp dir root
+            for f in os.listdir(plots_dir):
+                if f.endswith(".html"):
+                    shutil.copy2(
+                        os.path.join(plots_dir, f),
+                        os.path.join(tmp_dir, f),
+                    )
+
+            # Commit and push
+            subprocess.run(["git", "add", "-A"], cwd=tmp_dir, capture_output=True)
+            deploy_msg = f"Deploy dashboard: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            commit_result = subprocess.run(
+                ["git", "commit", "-m", deploy_msg],
+                cwd=tmp_dir, capture_output=True, text=True,
+            )
+
+            if "nothing to commit" in commit_result.stdout:
+                print("ℹ️ No dashboard changes to deploy")
+                print("-" * 60 + "\n")
+                return
+
+            push_result = subprocess.run(
+                ["git", "push", "origin", "gh-pages"],
+                cwd=tmp_dir, capture_output=True, text=True,
+            )
+
+            if push_result.returncode == 0:
+                print("✅ Deployed to GitHub Pages")
+                print("   Dashboard will be live in ~1 minute")
+                print("   🌐 https://Almo1990.github.io/capnf-dashboard/")
+            else:
+                print("⚠️ Push to gh-pages failed")
+                print(f"   Error: {push_result.stderr}")
 
         print("-" * 60 + "\n")
 
@@ -166,7 +216,7 @@ def main():
     print("  🚀 CapNF Auto-Update Dashboard Service")
     print("=" * 60)
     print(f"\n📁 Monitoring folder: {data_folder}")
-    print("📊 GitHub Pages: https://YOUR_USERNAME.github.io/capnf-dashboard/")
+    print("📊 GitHub Pages: https://Almo1990.github.io/capnf-dashboard/")
     print("\n💡 Instructions:")
     print("   1. Drop new .tsv files into the Data/ folder")
     print("   2. Pipeline will run automatically (2-5 minutes)")

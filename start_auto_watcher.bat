@@ -1,21 +1,16 @@
 @echo off
+setlocal
 REM ========================================
 REM  CapNF Auto-Update Dashboard Service
-REM ========================================
-REM
-REM This script starts a background service that monitors
-REM the Data/ folder for new .tsv files and automatically:
-REM   1. Runs the CapNF pipeline
-REM   2. Generates updated dashboard HTML files  
-REM   3. Deploys to GitHub Pages
-REM
-REM Keep this window open for auto-updates to work!
 REM ========================================
 
 color 0B
 title CapNF Auto-Update Service
 
 cd /d "%~dp0"
+
+REM Set Python executable
+set "PYTHON_EXE=C:\Users\Almohanad\anaconda3\python.exe"
 
 echo.
 echo  ╔══════════════════════════════════════════════════════════╗
@@ -25,7 +20,7 @@ echo  ║                                                          ║
 echo  ╚══════════════════════════════════════════════════════════╝
 echo.
 echo  📊 Monitoring: Data\ folder
-echo  🌐 Dashboard: https://YOUR_USERNAME.github.io/capnf-dashboard/
+echo  🌐 Dashboard: https://Almo1990.github.io/capnf-dashboard/
 echo.
 echo  💡 How it works:
 echo     • Drop new .tsv files into the Data\ folder
@@ -38,23 +33,15 @@ echo.
 echo ══════════════════════════════════════════════════════════
 echo.
 
-REM Check if watchdog is installed
-C:\ProgramData\anaconda3\python.exe -c "import watchdog" 2>nul
-if errorlevel 1 (
-    echo 📦 Installing required package: watchdog...
-    echo.
-    C:\ProgramData\anaconda3\python.exe -m pip install watchdog
-    echo.
-    if errorlevel 1 (
-        echo ❌ Failed to install watchdog
-        echo Please run: C:\ProgramData\anaconda3\python.exe -m pip install watchdog
-        pause
-        exit /b 1
-    )
+REM Check if Python exists
+if not exist "%PYTHON_EXE%" (
+    echo ❌ Python not found at: %PYTHON_EXE%
+    pause
+    exit /b 1
 )
 
 REM Start the auto-update service
-C:\ProgramData\anaconda3\python.exe auto_update_dashboard.py
+"%PYTHON_EXE%" "%~dp0auto_update_dashboard.py"
 
 echo.
 echo Service stopped.

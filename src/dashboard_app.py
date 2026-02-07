@@ -177,7 +177,7 @@ def create_individual_plots(
                 overlaying="y",
                 side="right",
                 showgrid=False,
-                titlefont=dict(color=temp_color),
+                title_font=dict(color=temp_color),
                 tickfont=dict(color=temp_color),
                 fixedrange=True,
             ),
@@ -304,7 +304,7 @@ def create_combined_parameters_plot(
             overlaying="y",
             side="right",
             showgrid=False,
-            titlefont=dict(color=temp_color),
+            title_font=dict(color=temp_color),
             tickfont=dict(color=temp_color),
             fixedrange=True,
         ),
@@ -2007,7 +2007,7 @@ def create_unified_dashboard(
                         title: 'Temperature (°C)',
                         overlaying: 'y',
                         side: 'right',
-                        titlefont: {{color: '{temp_color}'}},
+                        title: {{font: {{color: '{temp_color}'}}}},
                         tickfont: {{color: '{temp_color}'}},
                         fixedrange: true
                     }},
@@ -2094,12 +2094,11 @@ def create_unified_dashboard(
                     },
                     yaxis: {title: 'Process Parameters (Various Units)', fixedrange: false},
                     yaxis2: {
-                        title: 'Temperature (°C)',
+                        title: {text: 'Temperature (°C)', font: {color: '"""
+    html += temp_color
+    html += """'}},
                         overlaying: 'y',
                         side: 'right',
-                        titlefont: {color: '"""
-    html += temp_color
-    html += """'},
                         tickfont: {color: '"""
     html += temp_color
     html += """'},
