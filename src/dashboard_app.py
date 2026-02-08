@@ -424,10 +424,24 @@ def create_tmp_plot_with_forecast(
         last_time = df["TimeStamp"].iloc[-1]
         pred_time = pd.Timestamp(forecast["prediction_date"])
 
+        # Calculate fitted line value at last_time to start forecast from trend line
+        if slope_info:
+            from .utils.time_utils import convert_to_seconds_since_start
+
+            last_time_numeric = convert_to_seconds_since_start(pd.Series([last_time]))[
+                0
+            ]
+            fitted_value_at_last = (
+                slope_info["slope"] * last_time_numeric + slope_info["intercept"]
+            )
+        else:
+            # Fallback to last actual data point if no fit available
+            fitted_value_at_last = df["TMP"].iloc[-1]
+
         fig.add_trace(
             go.Scatter(
                 x=[last_time, pred_time],
-                y=[df["TMP"].iloc[-1], forecast["predicted_value"]],
+                y=[fitted_value_at_last, forecast["predicted_value"]],
                 mode="lines+markers",
                 line=dict(color="red", width=2, dash="dot"),
                 name="Forecast",
