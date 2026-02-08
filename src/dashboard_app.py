@@ -473,7 +473,7 @@ def create_tmp_plot_with_forecast(
             )
         )
 
-    # ── Trace 5: Linear forecast (extrapolation of irreversible trend) ───
+    # ── Trace 5: Forecast line (from forecast dictionary) ───
     forecast_horizon = forecast.get("forecast_horizon_days", 7) if forecast else 7
     threshold_tmp = 6.0
 
@@ -485,49 +485,47 @@ def create_tmp_plot_with_forecast(
         last_sec = (last_time - t0).total_seconds()
         pred_sec = (pred_time - t0).total_seconds()
 
-        fit_at_last = (
-            irrev_slope_info["slope"] * last_sec + irrev_slope_info["intercept"]
-        )
-        fit_at_pred = (
-            irrev_slope_info["slope"] * pred_sec + irrev_slope_info["intercept"]
-        )
+        # Use the last cycle-start TMP as the starting point for the forecast line
+        fit_at_last = valid_cycle_tmps[-1]
 
-        # Generate intermediate points for smooth line
-        n_pts = 20
-        interp_secs = np.linspace(last_sec, pred_sec, n_pts)
-        interp_times = [t0 + pd.Timedelta(seconds=float(s)) for s in interp_secs]
-        interp_vals = (
-            irrev_slope_info["slope"] * interp_secs + irrev_slope_info["intercept"]
-        ).tolist()
+        # Use the predicted_value from the forecast dictionary (consistent with KPI dashboard)
+        predicted_tmp = forecast.get("predicted_value")
 
-        fig.add_trace(
-            go.Scatter(
-                x=interp_times,
-                y=interp_vals,
-                mode="lines",
-                line=dict(color="#d62728", width=2.5, dash="dot"),
-                name=f"Linear Forecast ({forecast_horizon}d)",
-            )
-        )
+        if predicted_tmp is not None:
+            # Generate intermediate points for smooth line
+            n_pts = 20
+            interp_times = [
+                last_time
+                + pd.Timedelta(seconds=float((i / (n_pts - 1)) * (pred_sec - last_sec)))
+                for i in range(n_pts)
+            ]
+            interp_vals = [
+                fit_at_last + (i / (n_pts - 1)) * (predicted_tmp - fit_at_last)
+                for i in range(n_pts)
+            ]
 
-        # ── Trace 6: ML forecast line (if ML data available) ────────────
-        # Check if the forecast dict contains ML-specific keys
-        ml_forecast_value = forecast.get("predicted_value")
-        model_type = forecast.get("model_type", "linear")
-        if ml_forecast_value is not None and "ml_" in str(model_type):
+            model_type = forecast.get("model_type", "linear")
+            model_label = model_type.replace("ml_", "").replace("_", " ").title()
+
             fig.add_trace(
                 go.Scatter(
-                    x=[last_time, pred_time],
-                    y=[fit_at_last, ml_forecast_value],
+                    x=interp_times,
+                    y=interp_vals,
                     mode="lines+markers",
-                    line=dict(color="#9467bd", width=2.5, dash="dashdot"),
-                    marker=dict(size=8, symbol="diamond"),
-                    name=f"ML Forecast ({model_type.replace('ml_', '')})",
+                    line=dict(color="#d62728", width=2.5, dash="dot"),
+                    marker=dict(
+                        size=[0] * (n_pts - 1) + [8], symbol="diamond"
+                    ),  # Only show marker at end
+                    name=f"{model_label} Forecast ({forecast_horizon}d)",
                 )
             )
 
-        # ── Trace 7: Confidence cone (shaded area) ──────────────────────
-        if "lower_bound" in forecast and "upper_bound" in forecast:
+        # ── Trace 6: Confidence cone (shaded area) ──────────────────────
+        if (
+            "lower_bound" in forecast
+            and "upper_bound" in forecast
+            and predicted_tmp is not None
+        ):
             lower = forecast["lower_bound"]
             upper = forecast["upper_bound"]
 
@@ -538,8 +536,8 @@ def create_tmp_plot_with_forecast(
             for i in range(n_pts):
                 frac = i / (n_pts - 1)
                 cone_x.append(interp_times[i])
-                cone_y_upper.append(interp_vals[i] + frac * (upper - fit_at_pred))
-                cone_y_lower.append(interp_vals[i] + frac * (lower - fit_at_pred))
+                cone_y_upper.append(fit_at_last + frac * (upper - fit_at_last))
+                cone_y_lower.append(fit_at_last + frac * (lower - fit_at_last))
 
             # Upper bound line
             fig.add_trace(
@@ -565,7 +563,7 @@ def create_tmp_plot_with_forecast(
                 )
             )
 
-    # ── Trace 8: 6-bar threshold line ────────────────────────────────────
+    # ── Trace 7: 6-bar threshold line ────────────────────────────────────
     x_min = df["TimeStamp"].min()
     x_max = (
         pd.Timestamp(forecast["prediction_date"])

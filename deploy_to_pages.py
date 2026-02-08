@@ -169,17 +169,17 @@ def deploy_gh_pages(base_path):
 def push_main_branch(base_path):
     """Push all pipeline-relevant changes to main branch (respects .gitignore)."""
     print("  Pushing source changes to main...")
-    
+
     # Stage all changes
     add_result = run_git(["add", "-A"], cwd=base_path)
     if add_result.returncode != 0:
         print(f"  [ERROR] Failed to stage files: {add_result.stderr}")
         return
-    
+
     # Commit changes
     commit_msg = f"Auto-update: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     commit_result = run_git(["commit", "-m", commit_msg], cwd=base_path)
-    
+
     # Check if commit was successful
     if commit_result.returncode != 0:
         # Git outputs "nothing to commit" to stdout or stderr
@@ -190,9 +190,9 @@ def push_main_branch(base_path):
         else:
             print(f"  [ERROR] Commit failed: {commit_result.stderr}")
             return
-    
+
     print(f"  [OK] Changes committed: {commit_msg}")
-    
+
     # Push to main branch
     print("  Pushing to GitHub main branch...")
     result = run_git(["push", "origin", "main"], cwd=base_path, capture=False)
