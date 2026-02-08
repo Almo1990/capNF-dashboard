@@ -1301,6 +1301,8 @@ def create_unified_dashboard(
             gap: 10px;
             -webkit-tap-highlight-color: transparent;
             touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
         }}
         
         .nav-item:hover {{
@@ -1609,6 +1611,11 @@ def create_unified_dashboard(
             bottom: 0;
             background: rgba(0,0,0,0.5);
             z-index: 999;
+            pointer-events: none;
+        }}
+        
+        .mobile-overlay.active {{
+            pointer-events: auto;
         }}
         
         /* Plot responsiveness */
@@ -1632,17 +1639,27 @@ def create_unified_dashboard(
                 position: fixed;
                 left: calc(-85vw);
                 height: 100vh;
+                height: 100dvh;
                 transition: left 0.3s ease;
                 z-index: 1000;
                 -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
             }}
             
             .sidebar.open {{
                 left: 0;
+                box-shadow: 2px 0 20px rgba(0,0,0,0.3);
             }}
             
             .mobile-overlay.active {{
                 display: block;
+            }}
+            
+            .nav-menu {{
+                overflow-y: auto;
+                overflow-x: hidden;
+                max-height: calc(100vh - 120px);
+                padding-bottom: 20px;
             }}
             
             .main-content {{
@@ -2046,7 +2063,7 @@ def create_unified_dashboard(
     html += """    </div>
     
     <script>
-        // Mobile menu functions
+        // Mobile menu functions with improved touch handling
         function toggleMobileMenu() {
             const sidebar = document.querySelector('.sidebar');
             const overlay = document.querySelector('.mobile-overlay');
@@ -2064,6 +2081,32 @@ def create_unified_dashboard(
             overlay.classList.remove('active');
             body.classList.remove('menu-open');
         }
+        
+        // Prevent sidebar from closing when scrolling inside it
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.querySelector('.mobile-overlay');
+            
+            // Only close when clicking the overlay, not when interacting with sidebar
+            if (overlay) {
+                overlay.addEventListener('click', function(e) {
+                    if (e.target === overlay) {
+                        closeMobileMenu();
+                    }
+                });
+            }
+            
+            // Prevent touch events on sidebar from bubbling to overlay
+            if (sidebar) {
+                sidebar.addEventListener('touchstart', function(e) {
+                    e.stopPropagation();
+                }, { passive: true });
+                
+                sidebar.addEventListener('touchmove', function(e) {
+                    e.stopPropagation();
+                }, { passive: true });
+            }
+        });
         
         // Navigation function
         function showSection(sectionId) {
@@ -2084,9 +2127,11 @@ def create_unified_dashboard(
             // Add active class to clicked nav item
             event.currentTarget.classList.add('active');
             
-            // Close mobile menu if open
+            // Close mobile menu if open (with small delay to ensure click is registered)
             if (window.innerWidth <= 768) {
-                closeMobileMenu();
+                setTimeout(function() {
+                    closeMobileMenu();
+                }, 150);
             }
             
             // Render plot if needed
