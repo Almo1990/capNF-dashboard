@@ -426,22 +426,25 @@ def create_tmp_plot_with_forecast(
 
         # Calculate fitted line value at last_time to start forecast from trend line
         if slope_info:
-            from .utils.time_utils import convert_to_seconds_since_start
-
-            last_time_numeric = convert_to_seconds_since_start(pd.Series([last_time]))[
-                0
-            ]
+            # Use the same reference (df_tmp start) as the original fit
+            last_time_seconds = (last_time - df_tmp["TimeStamp"].min()).total_seconds()
             fitted_value_at_last = (
-                slope_info["slope"] * last_time_numeric + slope_info["intercept"]
+                slope_info["slope"] * last_time_seconds + slope_info["intercept"]
+            )
+            # Extrapolate the fit line to the forecast point for a true continuation
+            pred_time_seconds = (pred_time - df_tmp["TimeStamp"].min()).total_seconds()
+            forecast_end_value = (
+                slope_info["slope"] * pred_time_seconds + slope_info["intercept"]
             )
         else:
             # Fallback to last actual data point if no fit available
             fitted_value_at_last = df["TMP"].iloc[-1]
+            forecast_end_value = forecast["predicted_value"]
 
         fig.add_trace(
             go.Scatter(
                 x=[last_time, pred_time],
-                y=[fitted_value_at_last, forecast["predicted_value"]],
+                y=[fitted_value_at_last, forecast_end_value],
                 mode="lines+markers",
                 line=dict(color="red", width=2, dash="dot"),
                 name="Forecast",
@@ -584,9 +587,9 @@ def create_tmp_plot_with_forecast(
             slope * rawTimeNumeric[rawTimeNumeric.length - 1] + intercept
         ];
         
-        // Calculate forecast
+        // Calculate forecast as continuation of fitting line
         const lastTime = rawTimeNumeric[rawTimeNumeric.length - 1];
-        const lastTMP = rawTMPValues[rawTMPValues.length - 1];
+        const fittedValueAtLast = slope * lastTime + intercept;
         const futureTime = lastTime + (forecastHorizonDays * 86400000); // days to milliseconds
         const predictedTMP = slope * futureTime + intercept;
         const futureDate = new Date(futureTime);
@@ -605,12 +608,12 @@ def create_tmp_plot_with_forecast(
                 }}, [fitTraceIndex]);
             }}
             
-            // Find and update Forecast trace
+            // Find and update Forecast trace (continuation of fit line)
             const forecastTraceIndex = plotDiv.data.findIndex(trace => trace.name === 'Forecast');
             if (forecastTraceIndex >= 0) {{
                 Plotly.restyle(plotDiv, {{
                     'x': [[rawTimestamps[rawTimestamps.length - 1], futureDate.toISOString()]],
-                    'y': [[lastTMP, predictedTMP]]
+                    'y': [[fittedValueAtLast, predictedTMP]]
                 }}, [forecastTraceIndex]);
             }}
             
