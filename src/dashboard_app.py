@@ -2266,7 +2266,7 @@ def create_unified_dashboard(
     html += """        <!-- TMP Forecast Section -->
         <div id="tmp-forecast" class="content-section">
             <div class="plot-container">
-                <h3 class="plot-title">TMP vs Time (with Forecast)</h3>
+                <h3 class="plot-title">TMP Forecast — Irreversible Fouling Trend</h3>
                 <div id="plot-tmp-forecast"></div>
             </div>
         </div>
@@ -2571,297 +2571,40 @@ def create_unified_dashboard(
             
 """
 
-    # Add TMP forecast plot
-    # Prepare raw data for dynamic calculations
-    df_tmp_full = df_full[["TimeStamp", "TMP"]].dropna()
-    timestamps_js = df_tmp_full["TimeStamp"].astype(str).tolist()
-    tmp_values_js = df_tmp_full["TMP"].tolist()
-    tmp_forecast = forecasts.get("tmp") if forecasts else None
-    forecast_horizon = (
-        tmp_forecast.get("forecast_horizon_days", 7) if tmp_forecast else 7
-    )
-    model_type_index = (
-        tmp_forecast.get("model_type", "linear") if tmp_forecast else "linear"
-    )
-
-    html += f"""            if (sectionId === 'tmp-forecast') {{
-                // Store raw data for dynamic calculations
-                const rawTimestamps = {timestamps_js};
-                const rawTMPValues = {tmp_values_js};
-                const forecastHorizonDays = {forecast_horizon};
-                
-                // Convert timestamps to numeric (milliseconds)
-                const rawTimeNumeric = rawTimestamps.map(t => new Date(t).getTime());
-                const originalModelType = '{model_type_index}';
-                
-                var tmpTrace = {{
-                    x: """
-    html += str(df_viz["TimeStamp"].dt.strftime("%Y-%m-%d %H:%M:%S").tolist())
-    html += """,
-                    y: """
-    html += str(df_viz["TMP"].tolist())
-    html += """,
-                    mode: 'lines',
-                    name: 'TMP (Raw)',
-                    line: {color: '"""
-    html += colors[0]
-    html += """', width: 1},
-                    opacity: 0.4
-                };
-                
-                var traces = [tmpTrace];
-"""
-
-    if "TMP_SMA" in df_viz.columns:
-        html += """                
-                var tmpSmaTrace = {
-                    x: """
-        html += str(df_viz["TimeStamp"].dt.strftime("%Y-%m-%d %H:%M:%S").tolist())
-        html += """,
-                    y: """
-        html += str(df_viz["TMP_SMA"].tolist())
-        html += """,
-                    mode: 'lines',
-                    name: 'TMP (SMA)',
-                    line: {color: '"""
-        html += colors[0]
-        html += """', width: 2}
-                };
-                traces.push(tmpSmaTrace);
-"""
-
-    # Add linear fit
-    if len(df_full) > 1:
-        from .utils.time_utils import convert_to_seconds_since_start
-
-        df_tmp = df_full[["TimeStamp", "TMP"]].dropna()
-        time_numeric = convert_to_seconds_since_start(df_tmp["TimeStamp"])
-        coeffs = np.polyfit(time_numeric, df_tmp["TMP"], 1)
-        fit_values = coeffs[0] * time_numeric + coeffs[1]
-
-        # Calculate R²
-        y_mean = df_tmp["TMP"].mean()
-        ss_tot = np.sum((df_tmp["TMP"] - y_mean) ** 2)
-        ss_res = np.sum((df_tmp["TMP"] - fit_values) ** 2)
-        r_squared = 1 - (ss_res / ss_tot) if ss_tot != 0 else 0
-        slope_per_hour = coeffs[0] * 3600
-        slope_per_day = coeffs[0] * 86400
-
-        html += """                
-                var fitTrace = {
-                    x: """
-        html += str(df_tmp["TimeStamp"].dt.strftime("%Y-%m-%d %H:%M:%S").tolist())
-        html += """,
-                    y: """
-        html += str(fit_values.tolist())
-        html += """,
-                    mode: 'lines',
-                    name: 'Linear Fit',
-                    line: {color: 'black', width: 2, dash: 'dash'}
-                };
-                traces.push(fitTrace);
-"""
-
-    # Add forecast if available
-    if tmp_forecast and "predicted_value" in tmp_forecast:
-        last_time = df_full["TimeStamp"].iloc[-1]
-        pred_time = pd.Timestamp(tmp_forecast["prediction_date"])
-        last_tmp = df_full["TMP"].iloc[-1]
-
-        html += """                
-                var forecastTrace = {
-                    x: ['"""
-        html += last_time.strftime("%Y-%m-%d %H:%M:%S")
-        html += """', '"""
-        html += pred_time.strftime("%Y-%m-%d %H:%M:%S")
-        html += """'],
-                    y: ["""
-        html += str(last_tmp)
-        html += """, """
-        html += str(tmp_forecast["predicted_value"])
-        html += """],
-                    mode: 'lines+markers',
-                    name: 'Forecast',
-                    line: {color: 'red', width: 2, dash: 'dot'}
-                };
-                traces.push(forecastTrace);
-"""
-
-    # Add initial slope annotation
-    initial_slope_text = ""
-    if len(df_full) > 1:
-        initial_slope_text = f"<b>Model:</b> {model_type_index} (default)<br><b>Slope:</b> {slope_per_hour:.6f} bar/h ({slope_per_day:.4f} bar/day)<br><b>R²:</b> {r_squared:.4f}"
-
-    html += f"""                
-                var layout = {{
-                    xaxis: {{
-                        title: 'Time',
-                        rangeselector: {{
-                            buttons: [
-                                {{count: 1, label: '1h', step: 'hour', stepmode: 'backward'}},
-                                {{count: 12, label: '12h', step: 'hour', stepmode: 'backward'}},
-                                {{count: 1, label: '1d', step: 'day', stepmode: 'backward'}},
-                                {{count: 7, label: '1w', step: 'day', stepmode: 'backward'}},
-                                {{count: 1, label: '1m', step: 'month', stepmode: 'backward'}},
-                                {{count: 6, label: '6m', step: 'month', stepmode: 'backward'}},
-                                {{step: 'all', label: 'All'}}
-                            ]
-                        }},
-                        rangeslider: {{visible: true, thickness: 0.05}}
-                    }},
-                    yaxis: {{title: 'TMP (bar)', fixedrange: false}},
-                    annotations: [{{
-                        x: 0.98,
-                        y: 0.15,
-                        xref: 'paper',
-                        yref: 'paper',
-                        text: '{initial_slope_text}',
-                        showarrow: false,
-                        bgcolor: 'rgba(255, 255, 255, 0.8)',
-                        bordercolor: 'black',
-                        borderwidth: 1,
-                        borderpad: 5,
-                        font: {{size: 12}},
-                        align: 'right',
-                        xanchor: 'right',
-                        yanchor: 'bottom'
-                    }}],
-                    height: 750,
-                    margin: {{t: 50, b: 100, l: 80, r: 80}},
-                    hovermode: 'x unified',
-                    dragmode: 'zoom'
-                }};
-                
-                Plotly.newPlot('plot-tmp-forecast', traces, layout, {{responsive: true}});
-                
-                // Function to calculate linear regression
-                function linearRegression(x, y) {{
-                    const n = x.length;
-                    if (n < 2) return null;
-                    
-                    const sumX = x.reduce((a, b) => a + b, 0);
-                    const sumY = y.reduce((a, b) => a + b, 0);
-                    const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
-                    const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
-                    
-                    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-                    const intercept = (sumY - slope * sumX) / n;
-                    
-                    // Calculate R²
-                    const yMean = sumY / n;
-                    const yFit = x.map(xi => slope * xi + intercept);
-                    const ssTot = y.reduce((sum, yi) => sum + Math.pow(yi - yMean, 2), 0);
-                    const ssRes = y.reduce((sum, yi, i) => sum + Math.pow(yi - yFit[i], 2), 0);
-                    const r2 = 1 - (ssRes / ssTot);
-                    
-                    return {{slope, intercept, r2}};
-                }}
-                
-                // Function to update plot based on visible range
-                function updateTMPForecast(xRange) {{
-                    let startTime, endTime;
-                    
-                    if (xRange && xRange['xaxis.range[0]'] && xRange['xaxis.range[1]']) {{
-                        startTime = new Date(xRange['xaxis.range[0]']).getTime();
-                        endTime = new Date(xRange['xaxis.range[1]']).getTime();
-                    }} else if (xRange && xRange['xaxis.range']) {{
-                        startTime = new Date(xRange['xaxis.range'][0]).getTime();
-                        endTime = new Date(xRange['xaxis.range'][1]).getTime();
-                    }} else {{
-                        // Use full range
-                        startTime = Math.min(...rawTimeNumeric);
-                        endTime = Math.max(...rawTimeNumeric);
-                    }}
-                    
-                    // Filter data to visible range
-                    const visibleIndices = rawTimeNumeric.map((t, i) => (t >= startTime && t <= endTime) ? i : -1).filter(i => i >= 0);
-                    
-                    if (visibleIndices.length < 2) return;
-                    
-                    const visibleTimes = visibleIndices.map(i => rawTimeNumeric[i]);
-                    const visibleTMP = visibleIndices.map(i => rawTMPValues[i]);
-                    
-                    // Calculate regression on visible data
-                    const result = linearRegression(visibleTimes, visibleTMP);
-                    if (!result) return;
-                    
-                    const {{slope, intercept, r2}} = result;
-                    
-                    // Convert slope to bar/hour and bar/day
-                    const slopePerHour = slope * 3600000; // milliseconds to hours
-                    const slopePerDay = slope * 86400000; // milliseconds to days
-                    
-                    // Update linear fit trace
-                    const fitX = [rawTimestamps[0], rawTimestamps[rawTimestamps.length - 1]];
-                    const fitY = [
-                        slope * rawTimeNumeric[0] + intercept,
-                        slope * rawTimeNumeric[rawTimeNumeric.length - 1] + intercept
-                    ];
-                    
-                    // Calculate forecast
-                    const lastTime = rawTimeNumeric[rawTimeNumeric.length - 1];
-                    const lastTMP = rawTMPValues[rawTMPValues.length - 1];
-                    const futureTime = lastTime + (forecastHorizonDays * 86400000); // days to milliseconds
-                    const predictedTMP = slope * futureTime + intercept;
-                    const futureDate = new Date(futureTime).toISOString();
-                    
-                    // Update traces
-                    const plotDiv = document.getElementById('plot-tmp-forecast');
-                    if (plotDiv && plotDiv.data) {{
-                        // Find and update Linear Fit trace
-                        const fitTraceIndex = plotDiv.data.findIndex(trace => trace.name === 'Linear Fit');
-                        if (fitTraceIndex >= 0) {{
-                            Plotly.restyle(plotDiv, {{
-                                'x': [fitX],
-                                'y': [fitY]
-                            }}, [fitTraceIndex]);
-                        }}
+    # Add TMP forecast plot - Load from standalone redesigned HTML file
+    html += """            if (sectionId === 'tmp-forecast') {
+                // Load the redesigned TMP forecast plot from TMP_forecast.html
+                fetch('TMP_forecast.html')
+                    .then(response => response.text())
+                    .then(html => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        const plotDiv = doc.querySelector('.plotly');
+                        const scripts = doc.querySelectorAll('script');
                         
-                        // Find and update Forecast trace
-                        const forecastTraceIndex = plotDiv.data.findIndex(trace => trace.name === 'Forecast');
-                        if (forecastTraceIndex >= 0) {{
-                            Plotly.restyle(plotDiv, {{
-                                'x': [[rawTimestamps[rawTimestamps.length - 1], futureDate]],
-                                'y': [[lastTMP, predictedTMP]]
-                            }}, [forecastTraceIndex]);
-                        }}
-                        
-                        // Determine if using full range or filtered range
-                        const isFullRange = visibleIndices.length === rawTimeNumeric.length;
-                        const modelInfo = isFullRange ?
-                            `<b>Model:</b> ${{originalModelType}} (default)` :
-                            `<b>Model:</b> linear regression (dynamic - filtered range)`;
-                        
-                        // Update annotation with slope and model info
-                        const annotation = {{
-                            x: 0.98,
-                            y: 0.15,
-                            xref: 'paper',
-                            yref: 'paper',
-                            text: `${{modelInfo}}<br><b>Slope:</b> ${{slopePerHour.toFixed(6)}} bar/h (${{slopePerDay.toFixed(4)}} bar/day)<br><b>R²:</b> ${{r2.toFixed(4)}}`,
-                            showarrow: false,
-                            bgcolor: 'rgba(255, 255, 255, 0.8)',
-                            bordercolor: 'black',
-                            borderwidth: 1,
-                            borderpad: 5,
-                            font: {{size: 12}},
-                            align: 'right',
-                            xanchor: 'right',
-                            yanchor: 'bottom'
-                        }};
-                        
-                        Plotly.relayout(plotDiv, {{'annotations': [annotation]}});
-                    }}
-                }}
-                
-                // Listen for range changes on TMP forecast plot
-                const tmpPlotDiv = document.getElementById('plot-tmp-forecast');
-                if (tmpPlotDiv) {{
-                    tmpPlotDiv.on('plotly_relayout', function(eventData) {{
-                        updateTMPForecast(eventData);
-                    }});
-                }}
-            }}
+                        // Extract the plot div and inject into our container
+                        const container = document.getElementById('plot-tmp-forecast');
+                        if (plotDiv && container) {
+                            container.innerHTML = plotDiv.outerHTML;
+                            
+                            // Execute any embedded scripts
+                            scripts.forEach(script => {
+                                if (script.textContent && !script.src) {
+                                    try {
+                                        eval(script.textContent);
+                                    } catch(e) {
+                                        console.error('Error executing TMP forecast script:', e);
+                                    }
+                                }
+                            });
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Failed to load TMP_forecast.html:', err);
+                        document.getElementById('plot-tmp-forecast').innerHTML = 
+                            '<div style="padding: 40px; text-align: center; color: #dc3545;">⚠️ Failed to load TMP forecast plot. Please ensure TMP_forecast.html exists.</div>';
+                    });
+            }
 """
 
     # Add cycle comparison plot
