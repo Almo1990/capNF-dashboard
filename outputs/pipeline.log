@@ -31907,3 +31907,253 @@ Calculating fouling rates...
 2026-02-08 11:17:39,203 - src.dashboard_app - INFO - ✓ DASHBOARD APP COMPLETE
 2026-02-08 11:17:39,203 - src.dashboard_app - INFO - ============================================================
 2026-02-08 11:17:39,206 - __main__ - INFO - ✓ Stage 8 completed in 5.08s
+2026-02-08 11:29:35,373 - src.ingestion - INFO - ============================================================
+2026-02-08 11:29:35,374 - src.ingestion - INFO - 📥 INGESTION STAGE
+2026-02-08 11:29:35,375 - src.ingestion - INFO - ============================================================
+2026-02-08 11:29:35,393 - src.ingestion - INFO - Found 7 TSV file(s):
+2026-02-08 11:29:35,394 - src.ingestion - INFO -   - 2026-01-28_03-30-02 DataLog.tsv
+2026-02-08 11:29:35,394 - src.ingestion - INFO -   - 2026-01-29_16-08-47 DataLog.tsv
+2026-02-08 11:29:35,394 - src.ingestion - INFO -   - 2026-01-31_13-41-41 DataLog.tsv
+2026-02-08 11:29:35,395 - src.ingestion - INFO -   - 2026-02-02_10-58-43 DataLog.tsv
+2026-02-08 11:29:35,395 - src.ingestion - INFO -   - 2026-02-04_08-15-54 DataLog.tsv
+2026-02-08 11:29:35,395 - src.ingestion - INFO -   - 2026-02-06_05-32-36 DataLog.tsv
+2026-02-08 11:29:35,395 - src.ingestion - INFO -   - 2026-02-06_12-23-10 DataLog.tsv
+2026-02-08 11:29:35,395 - src.ingestion - INFO - Reading 2026-01-28_03-30-02 DataLog.tsv...
+2026-02-08 11:29:36,558 - src.ingestion - INFO - Reading 2026-01-29_16-08-47 DataLog.tsv...
+2026-02-08 11:29:38,147 - src.ingestion - INFO - Reading 2026-01-31_13-41-41 DataLog.tsv...
+2026-02-08 11:29:39,462 - src.ingestion - INFO - Reading 2026-02-02_10-58-43 DataLog.tsv...
+2026-02-08 11:29:40,856 - src.ingestion - INFO - Reading 2026-02-04_08-15-54 DataLog.tsv...
+2026-02-08 11:29:42,141 - src.ingestion - INFO - Reading 2026-02-06_05-32-36 DataLog.tsv...
+2026-02-08 11:29:42,293 - src.ingestion - INFO - Reading 2026-02-06_12-23-10 DataLog.tsv...
+2026-02-08 11:29:43,181 - src.ingestion - INFO - ✓ Combined 7 file(s) into 185595 total rows
+2026-02-08 11:29:43,192 - src.ingestion - INFO - Raw data shape: (185595, 78)
+2026-02-08 11:29:43,193 - src.ingestion - INFO - Columns: 78
+2026-02-08 11:29:43,729 - src.ingestion - INFO - ✓ TimeStamp converted to datetime format
+2026-02-08 11:29:43,730 - src.ingestion - INFO -   Time range: 10 days 20:10:59.080000
+2026-02-08 11:29:43,730 - src.ingestion - INFO -   Start: 2026-01-28 02:40:27.790000
+2026-02-08 11:29:43,731 - src.ingestion - INFO -   End: 2026-02-07 22:51:26.870000
+2026-02-08 11:29:43,731 - src.ingestion - INFO -   Duration: 10.84 days
+2026-02-08 11:29:43,732 - src.ingestion - INFO -   Sampling frequency: 5s
+2026-02-08 11:29:44,124 - src.utils.data_io - INFO - ✓ Saved outputs/01_raw.parquet (185595 rows, 7.49 MB)
+2026-02-08 11:29:44,125 - __main__ - INFO - ✓ Stage 1 completed in 8.75s
+2026-02-08 11:29:44,126 - src.validation - INFO - ============================================================
+2026-02-08 11:29:44,127 - src.validation - INFO - ✅ VALIDATION STAGE
+2026-02-08 11:29:44,128 - src.validation - INFO - ============================================================
+2026-02-08 11:29:44,141 - src.validation - INFO - Loading data from: outputs/01_raw.parquet
+2026-02-08 11:29:44,258 - src.utils.data_io - INFO - ✓ Loaded outputs/01_raw.parquet (185595 rows)
+2026-02-08 11:29:44,259 - src.validation - INFO - Input data: (185595, 78)
+2026-02-08 11:29:44,260 - src.validation - INFO - ✓ All required columns present
+2026-02-08 11:29:44,276 - src.validation - INFO - Missing values detected:
+2026-02-08 11:29:44,276 - src.validation - INFO -   - Permeability: 5.43%
+2026-02-08 11:29:44,277 - src.validation - INFO -   - Permeability TC: 5.43%
+2026-02-08 11:29:44,278 - src.validation - INFO -   - Recovery: 0.00%
+2026-02-08 11:29:44,278 - src.validation - INFO -   - Mem. retention: 0.16%
+2026-02-08 11:29:44,279 - src.validation - INFO -   - Sys. retention: 0.16%
+2026-02-08 11:29:44,279 - src.validation - INFO -   - Net recovery: 0.13%
+2026-02-08 11:29:44,279 - src.validation - INFO -   - Specific_power: 0.00%
+2026-02-08 11:29:44,283 - src.utils.time_utils - INFO - Found 2 timestamp gaps > 5 min
+2026-02-08 11:29:44,283 - src.validation - WARNING - Detected 2 timestamp gaps > 5 min:
+2026-02-08 11:29:44,284 - src.validation - WARNING -   - Gap of 19.7 min: 2026-01-28 03:10:20 to 2026-01-28 03:30:04.480000
+2026-02-08 11:29:44,284 - src.validation - WARNING -   - Gap of 101.2 min: 2026-01-28 10:29:54.860000 to 2026-01-28 12:11:05.120000
+2026-02-08 11:29:44,284 - src.validation - INFO - Applying bandwidth filters:
+2026-02-08 11:29:44,301 - src.validation - INFO -   - TMP: [0 to 8] Removed 622 outliers
+2026-02-08 11:29:44,311 - src.validation - INFO -   - Permeability TC: [0 to 20] Removed 10405 outliers
+2026-02-08 11:29:44,319 - src.validation - INFO -   - Mem. retention: [0 to 50] Removed 38 outliers
+2026-02-08 11:29:44,326 - src.validation - INFO -   - Sys. retention: [0 to 50] Removed 26 outliers
+2026-02-08 11:29:44,333 - src.validation - INFO -   - Flux: [0 to 30] Removed 1 outliers
+2026-02-08 11:29:44,338 - src.validation - INFO -   - 01-TIT-01: [-10 to 30] Removed 0 outliers
+2026-02-08 11:29:44,345 - src.validation - INFO -   - Recovery: [0 to 100] Removed 0 outliers
+2026-02-08 11:29:44,354 - src.validation - INFO -   - Net recovery: [0 to 100] Removed 827 outliers
+2026-02-08 11:29:44,363 - src.validation - INFO -   - Specific_power: [0 to 0.5] Removed 44 outliers
+2026-02-08 11:29:44,370 - src.validation - INFO -   - Vcrossflow: [0 to 50] Removed 0 outliers
+2026-02-08 11:29:44,371 - src.validation - INFO - ✓ Total data points removed: 11963
+2026-02-08 11:29:44,371 - src.validation - INFO - ✓ Retention rate: 93.6%
+2026-02-08 11:29:44,442 - src.utils.data_io - INFO - ✓ Saved outputs/02_validated.parquet (173632 rows, 2.33 MB)
+2026-02-08 11:29:44,444 - src.validation - INFO - ✓ Saved validation report: outputs/validation_report.json
+2026-02-08 11:30:08,795 - src.validation - INFO - ✓ Saved Excel file: combined_data_filtered.xlsx
+2026-02-08 11:30:08,796 - src.validation - INFO - ============================================================
+2026-02-08 11:30:08,796 - src.validation - INFO - ✓ VALIDATION COMPLETE
+2026-02-08 11:30:08,797 - src.validation - INFO - ============================================================
+2026-02-08 11:30:08,801 - __main__ - INFO - ✓ Stage 2 completed in 24.67s
+2026-02-08 11:30:08,803 - src.preprocessing - INFO - ============================================================
+2026-02-08 11:30:08,803 - src.preprocessing - INFO - ⚙️ PREPROCESSING STAGE
+2026-02-08 11:30:08,803 - src.preprocessing - INFO - ============================================================
+2026-02-08 11:30:08,816 - src.preprocessing - INFO - Loading data from: outputs/02_validated.parquet
+2026-02-08 11:30:08,859 - src.utils.data_io - INFO - ✓ Loaded outputs/02_validated.parquet (173632 rows)
+2026-02-08 11:30:08,859 - src.preprocessing - INFO - Input data: (173632, 11)
+2026-02-08 11:30:08,870 - src.preprocessing - INFO - Filtered data from 2026-01-28 15:10:00: removed 6046 rows
+2026-02-08 11:30:08,870 - src.preprocessing - INFO - Filtered data shape: (167586, 11)
+2026-02-08 11:30:08,879 - src.preprocessing - INFO - Filling 6 small gaps (≤5 min)...
+2026-02-08 11:30:08,897 - src.preprocessing - INFO - ✓ Gap filling complete (forward_fill)
+2026-02-08 11:30:08,898 - src.preprocessing - INFO - Calculating SMA (window=50 points) for 10 columns...
+2026-02-08 11:30:08,965 - src.preprocessing - INFO - ✓ Added 10 SMA columns
+2026-02-08 11:30:08,966 - src.preprocessing - INFO - Processed data shape: (167586, 21)
+2026-02-08 11:30:09,091 - src.utils.data_io - INFO - ✓ Saved outputs/03_processed.parquet (167586 rows, 5.07 MB)
+2026-02-08 11:30:09,091 - src.preprocessing - INFO - 
+Creating visualization-ready data...
+2026-02-08 11:30:09,091 - src.preprocessing - INFO - Downsampling from 167586 to ~10000 points...
+2026-02-08 11:30:09,098 - src.preprocessing - INFO - ✓ Downsampled to 10476 points
+2026-02-08 11:30:09,099 - src.preprocessing - INFO - Calculating SMA (window=50 points) for 20 columns...
+2026-02-08 11:30:09,109 - src.preprocessing - INFO - ✓ Added 20 SMA columns
+2026-02-08 11:30:09,109 - src.preprocessing - INFO - Visualization data shape: (10476, 31)
+2026-02-08 11:30:09,136 - src.utils.data_io - INFO - ✓ Saved outputs/03_processed_viz.parquet (10476 rows, 1.13 MB)
+2026-02-08 11:30:09,137 - src.preprocessing - INFO - ============================================================
+2026-02-08 11:30:09,137 - src.preprocessing - INFO - ✓ PREPROCESSING COMPLETE
+2026-02-08 11:30:09,137 - src.preprocessing - INFO - ============================================================
+2026-02-08 11:30:09,139 - __main__ - INFO - ✓ Stage 3 completed in 0.34s
+2026-02-08 11:30:09,139 - src.feature_engineering - INFO - ============================================================
+2026-02-08 11:30:09,140 - src.feature_engineering - INFO - 🔧 FEATURE ENGINEERING STAGE
+2026-02-08 11:30:09,140 - src.feature_engineering - INFO - ============================================================
+2026-02-08 11:30:09,154 - src.feature_engineering - INFO - Loading data from: outputs/03_processed.parquet
+2026-02-08 11:30:09,221 - src.utils.data_io - INFO - ✓ Loaded outputs/03_processed.parquet (167586 rows)
+2026-02-08 11:30:09,221 - src.feature_engineering - INFO - Input data: (167586, 21)
+2026-02-08 11:30:09,222 - src.feature_engineering - INFO - Calculating derivatives for 4 columns...
+2026-02-08 11:30:09,301 - src.feature_engineering - INFO - ✓ Added 4 derivative columns
+2026-02-08 11:30:09,303 - src.feature_engineering - INFO - Calculating rolling stats for 4 columns over 3 windows...
+2026-02-08 11:30:09,577 - src.feature_engineering - INFO - ✓ Added 24 rolling statistic columns
+2026-02-08 11:30:09,581 - src.feature_engineering - INFO - Calculating temperature-normalized metrics (ref=10°C)...
+2026-02-08 11:30:09,605 - src.feature_engineering - INFO - ✓ Added temperature-normalized metrics
+2026-02-08 11:30:09,613 - src.feature_engineering - INFO - Calculating efficiency metrics...
+2026-02-08 11:30:09,692 - src.feature_engineering - INFO - ✓ Added efficiency metrics
+2026-02-08 11:30:09,696 - src.feature_engineering - INFO - 
+✓ Feature engineering complete
+2026-02-08 11:30:09,696 - src.feature_engineering - INFO -   Original columns: 21
+2026-02-08 11:30:09,697 - src.feature_engineering - INFO -   New features: 33
+2026-02-08 11:30:09,697 - src.feature_engineering - INFO -   Total columns: 54
+2026-02-08 11:30:10,335 - src.utils.data_io - INFO - ✓ Saved outputs/04_features.parquet (167586 rows, 36.54 MB)
+2026-02-08 11:30:10,336 - src.feature_engineering - INFO - ============================================================
+2026-02-08 11:30:10,336 - src.feature_engineering - INFO - ✓ FEATURE ENGINEERING COMPLETE
+2026-02-08 11:30:10,336 - src.feature_engineering - INFO - ============================================================
+2026-02-08 11:30:10,337 - __main__ - INFO - ✓ Stage 4 completed in 1.20s
+2026-02-08 11:30:10,338 - src.fouling_metrics - INFO - ============================================================
+2026-02-08 11:30:10,338 - src.fouling_metrics - INFO - 📉 FOULING METRICS STAGE
+2026-02-08 11:30:10,339 - src.fouling_metrics - INFO - ============================================================
+2026-02-08 11:30:10,358 - src.fouling_metrics - INFO - Loading data from: outputs/04_features.parquet
+2026-02-08 11:30:10,484 - src.utils.data_io - INFO - ✓ Loaded outputs/04_features.parquet (167586 rows)
+2026-02-08 11:30:10,484 - src.fouling_metrics - INFO - Input data: (167586, 54)
+2026-02-08 11:30:10,539 - src.fouling_metrics - INFO - Global TMP slope:
+2026-02-08 11:30:10,539 - src.fouling_metrics - INFO -   0.000626 bar/hour
+2026-02-08 11:30:10,539 - src.fouling_metrics - INFO -   0.0150 bar/day
+2026-02-08 11:30:10,540 - src.fouling_metrics - INFO -   R² = 0.0530
+2026-02-08 11:30:10,540 - src.fouling_metrics - INFO - Fouling classification: LOW
+2026-02-08 11:30:10,541 - src.fouling_metrics - INFO - Calculating rolling TMP slopes over 3 windows...
+2026-02-08 11:30:10,744 - src.fouling_metrics - INFO - ✓ Added 3 rolling slope columns
+2026-02-08 11:30:10,748 - src.fouling_metrics - INFO - Calculating permeability decline from baseline period...
+2026-02-08 11:30:10,784 - src.fouling_metrics - INFO - Baseline period: 2026-01-28 15:00:00 to 2026-02-04 15:00:00
+2026-02-08 11:30:10,831 - src.fouling_metrics - INFO - Sampling rate: ~718 points/hour, 17232 points/24h
+2026-02-08 11:30:10,939 - src.fouling_metrics - INFO - Baseline permeability (from SMA): 8.44 LMH/bar
+2026-02-08 11:30:10,940 - src.fouling_metrics - INFO - Most stable period slope: 8.105986e-09 LMH/bar/s
+2026-02-08 11:30:10,940 - src.fouling_metrics - INFO - Current permeability (from SMA): 8.37 LMH/bar
+2026-02-08 11:30:10,941 - src.fouling_metrics - INFO - Permeability decline from baseline: 0.76%
+2026-02-08 11:30:10,943 - src.fouling_metrics - INFO - ✓ Added permeability decline column (baseline method)
+2026-02-08 11:30:12,096 - src.utils.data_io - INFO - ✓ Saved outputs/05_fouling_metrics.parquet (167586 rows, 39.78 MB)
+2026-02-08 11:30:12,099 - src.fouling_metrics - INFO - ✓ Saved metadata: outputs/fouling_metadata.json
+2026-02-08 11:30:12,100 - src.fouling_metrics - INFO - ============================================================
+2026-02-08 11:30:12,101 - src.fouling_metrics - INFO - ✓ FOULING METRICS COMPLETE
+2026-02-08 11:30:12,102 - src.fouling_metrics - INFO - ============================================================
+2026-02-08 11:30:12,102 - __main__ - INFO - ✓ Stage 5 completed in 1.76s
+2026-02-08 11:30:12,103 - src.cleaning_analysis - INFO - ============================================================
+2026-02-08 11:30:12,103 - src.cleaning_analysis - INFO - 🔄 FILTRATION CYCLE ANALYSIS STAGE
+2026-02-08 11:30:12,104 - src.cleaning_analysis - INFO - ============================================================
+2026-02-08 11:30:12,126 - src.cleaning_analysis - INFO - Loading data from raw parquet (for program numbers)...
+2026-02-08 11:30:12,189 - src.utils.data_io - INFO - ✓ Loaded outputs/01_raw.parquet (185595 rows)
+2026-02-08 11:30:12,189 - src.cleaning_analysis - INFO - Loading processed data from: outputs/05_fouling_metrics.parquet
+2026-02-08 11:30:12,344 - src.utils.data_io - INFO - ✓ Loaded outputs/05_fouling_metrics.parquet (167586 rows)
+2026-02-08 11:30:12,344 - src.cleaning_analysis - INFO - Input data: (167586, 59)
+2026-02-08 11:30:12,345 - src.cleaning_analysis - INFO - Using Active program number for filtration cycle detection
+2026-02-08 11:30:12,354 - src.cleaning_analysis - INFO - Detected 266 continuous filtration periods (program 10)
+2026-02-08 11:30:12,357 - src.cleaning_analysis - INFO - Detected 5 chemical cleaning events (program 32)
+2026-02-08 11:30:12,360 - src.cleaning_analysis - INFO - ✓ Saved chemical cleaning info: outputs/chemical_cleanings.json
+2026-02-08 11:30:12,389 - src.cleaning_analysis - INFO - Filtering periods with minimum duration: 30min
+2026-02-08 11:30:21,316 - src.cleaning_analysis - INFO - ✓ Identified 246 filtration cycles (> 30min)
+2026-02-08 11:30:22,033 - src.utils.data_io - INFO - ✓ Saved outputs/06_cycles.parquet (167586 rows, 39.79 MB)
+2026-02-08 11:30:22,042 - src.utils.data_io - INFO - ✓ Saved outputs/06_cycle_summary.parquet (246 rows, 0.04 MB)
+2026-02-08 11:30:22,062 - src.cleaning_analysis - INFO - ✓ Saved cycle summary: outputs/cycles_summary.json
+2026-02-08 11:30:22,063 - src.cleaning_analysis - INFO - 
+Cycle Statistics:
+2026-02-08 11:30:22,063 - src.cleaning_analysis - INFO -   Number of cycles: 246
+2026-02-08 11:30:22,064 - src.cleaning_analysis - INFO -   Avg duration: 0.9 hours
+2026-02-08 11:30:22,065 - src.cleaning_analysis - INFO -   Avg TMP slope: 0.092091 bar/hour
+2026-02-08 11:30:22,066 - src.cleaning_analysis - INFO -   Avg permeability decline: -136.2%
+2026-02-08 11:30:22,068 - src.cleaning_analysis - INFO - 
+Calculating fouling rates...
+2026-02-08 11:30:22,070 - src.cleaning_analysis - INFO -   Outlier filtering: 246 cycles → 245 valid cycles
+2026-02-08 11:30:22,071 - src.cleaning_analysis - INFO -   TMP range: 3.480 - 3.735 bar
+2026-02-08 11:30:22,072 - src.cleaning_analysis - INFO -   Reversible fouling rate: 0.014973 bar/day (R² = 0.5608)
+2026-02-08 11:30:22,072 - src.cleaning_analysis - INFO -   Based on 245 valid cycles (out of 246 total)
+2026-02-08 11:30:22,077 - src.cleaning_analysis - INFO -   Irreversible fouling rate: 0.009073 bar/day (R² = 0.2272)
+2026-02-08 11:30:22,077 - src.cleaning_analysis - INFO -   Based on 5 post-cleaning cycles
+2026-02-08 11:30:22,080 - src.cleaning_analysis - INFO - ✓ Saved fouling rates: outputs/fouling_rates.json
+2026-02-08 11:30:22,080 - src.cleaning_analysis - INFO - ============================================================
+2026-02-08 11:30:22,081 - src.cleaning_analysis - INFO - ✓ CLEANING ANALYSIS COMPLETE
+2026-02-08 11:30:22,081 - src.cleaning_analysis - INFO - ============================================================
+2026-02-08 11:30:22,096 - __main__ - INFO - ✓ Stage 6 completed in 9.99s
+2026-02-08 11:30:22,097 - src.kpi_engine - INFO - ============================================================
+2026-02-08 11:30:22,097 - src.kpi_engine - INFO - 📊 KPI ENGINE STAGE
+2026-02-08 11:30:22,098 - src.kpi_engine - INFO - ============================================================
+2026-02-08 11:30:22,113 - src.kpi_engine - INFO - Loading data from: outputs/06_cycles.parquet
+2026-02-08 11:30:22,270 - src.utils.data_io - INFO - ✓ Loaded outputs/06_cycles.parquet (167586 rows)
+2026-02-08 11:30:22,298 - src.utils.data_io - INFO - ✓ Loaded outputs/06_cycle_summary.parquet (246 rows)
+2026-02-08 11:30:22,331 - src.kpi_engine - INFO - Calculating KPIs...
+2026-02-08 11:30:22,335 - src.kpi_engine - INFO - ✓ Calculated 8 KPIs
+2026-02-08 11:30:22,336 - src.kpi_engine - INFO - Generating alerts...
+2026-02-08 11:30:22,336 - src.kpi_engine - INFO - ✓ Generated 0 alerts
+2026-02-08 11:30:22,337 - src.kpi_engine - INFO - Creating TMP forecast (linear, 7.0 days ahead)...
+2026-02-08 11:30:22,342 - src.kpi_engine - INFO - Filtered forecast data from 2026-01-28 15:10:00: 167586 points
+2026-02-08 11:30:22,358 - src.kpi_engine - INFO - ✓ TMP forecast: 3.87 bar in 7.0 days
+2026-02-08 11:30:22,359 - src.kpi_engine - INFO -   Time to 8 bar threshold: 272.1 days
+2026-02-08 11:30:22,359 - src.kpi_engine - INFO - Creating Permeability TC forecast (linear, 7.0 days ahead)...
+2026-02-08 11:30:22,363 - src.kpi_engine - INFO - Filtered forecast data from 2026-01-28 15:10:00: 167586 points
+2026-02-08 11:30:22,382 - src.kpi_engine - INFO - ✓ Permeability TC forecast: 8.0 LMH/bar in 7.0 days
+2026-02-08 11:30:22,384 - src.kpi_engine - INFO - ✓ Saved KPIs: outputs/07_kpis.json
+2026-02-08 11:30:22,386 - src.kpi_engine - INFO - ✓ Saved alerts: outputs/07_alerts.json
+2026-02-08 11:30:22,388 - src.kpi_engine - INFO - ✓ Saved TMP forecast: outputs/07_forecast.json
+2026-02-08 11:30:22,390 - src.kpi_engine - INFO - ✓ Saved Permeability forecast: outputs/07_permeability_forecast.json
+2026-02-08 11:30:22,390 - src.kpi_engine - INFO - 
+📈 Summary:
+2026-02-08 11:30:22,390 - src.kpi_engine - INFO -   KPIs: 8
+2026-02-08 11:30:22,390 - src.kpi_engine - INFO -   Alerts: 0 (0 critical)
+2026-02-08 11:30:22,391 - src.kpi_engine - INFO -   TMP Forecast available: True
+2026-02-08 11:30:22,391 - src.kpi_engine - INFO -   Permeability Forecast available: True
+2026-02-08 11:30:22,391 - src.kpi_engine - INFO - ============================================================
+2026-02-08 11:30:22,391 - src.kpi_engine - INFO - ✓ KPI ENGINE COMPLETE
+2026-02-08 11:30:22,392 - src.kpi_engine - INFO - ============================================================
+2026-02-08 11:30:22,396 - __main__ - INFO - ✓ Stage 7 completed in 0.30s
+2026-02-08 11:30:22,396 - src.dashboard_app - INFO - ============================================================
+2026-02-08 11:30:22,397 - src.dashboard_app - INFO - 📊 DASHBOARD APP STAGE
+2026-02-08 11:30:22,397 - src.dashboard_app - INFO - ============================================================
+2026-02-08 11:30:22,411 - src.dashboard_app - INFO - Loading visualization data from: outputs/03_processed_viz.parquet
+2026-02-08 11:30:22,444 - src.utils.data_io - INFO - ✓ Loaded outputs/03_processed_viz.parquet (10476 rows)
+2026-02-08 11:30:22,445 - src.dashboard_app - INFO - Loading full data from: outputs/06_cycles.parquet
+2026-02-08 11:30:22,511 - src.utils.data_io - INFO - ✓ Loaded outputs/06_cycles.parquet (167586 rows)
+2026-02-08 11:30:22,517 - src.utils.data_io - INFO - ✓ Loaded outputs/06_cycle_summary.parquet (246 rows)
+2026-02-08 11:30:22,524 - src.dashboard_app - INFO - Creating unified navigation dashboard...
+2026-02-08 11:30:24,597 - src.dashboard_app - INFO -   ✓ Created: Unified Navigation Dashboard
+2026-02-08 11:30:24,609 - src.dashboard_app - INFO -   🎯 Main dashboard: combined_data_plots\index.html
+2026-02-08 11:30:24,610 - src.dashboard_app - INFO - Creating KPI dashboard...
+2026-02-08 11:30:24,612 - src.dashboard_app - INFO -   ✓ Created: KPI Dashboard
+2026-02-08 11:30:24,613 - src.dashboard_app - INFO - Creating individual parameter plots...
+2026-02-08 11:30:25,088 - src.dashboard_app - INFO -   ✓ Created: TMP
+2026-02-08 11:30:25,170 - src.dashboard_app - INFO -   ✓ Created: Permeability TC
+2026-02-08 11:30:25,239 - src.dashboard_app - INFO -   ✓ Created: Mem. retention
+2026-02-08 11:30:25,336 - src.dashboard_app - INFO -   ✓ Created: Sys. retention
+2026-02-08 11:30:25,420 - src.dashboard_app - INFO -   ✓ Created: Recovery
+2026-02-08 11:30:25,523 - src.dashboard_app - INFO -   ✓ Created: Net recovery
+2026-02-08 11:30:25,634 - src.dashboard_app - INFO -   ✓ Created: Specific_power
+2026-02-08 11:30:25,742 - src.dashboard_app - INFO -   ✓ Created: Flux
+2026-02-08 11:30:25,824 - src.dashboard_app - INFO -   ✓ Created: Vcrossflow
+2026-02-08 11:30:25,885 - src.dashboard_app - INFO -   ✓ Created: 01-TIT-01
+2026-02-08 11:30:25,885 - src.dashboard_app - INFO - Creating combined parameters plot...
+2026-02-08 11:30:26,055 - src.dashboard_app - INFO -   ✓ Created: Combined Parameters
+2026-02-08 11:30:26,056 - src.dashboard_app - INFO - Creating TMP plot with forecast...
+2026-02-08 11:30:26,065 - src.utils.data_io - INFO - ✓ Loaded outputs/03_processed_viz.parquet (10476 rows)
+2026-02-08 11:30:26,719 - src.dashboard_app - INFO -   ✓ Created: TMP forecast plot with dynamic slope calculation
+2026-02-08 11:30:26,725 - src.dashboard_app - INFO - Creating cycle comparison plot...
+2026-02-08 11:30:26,760 - src.dashboard_app - INFO -   ✓ Created: Cycle comparison plot
+2026-02-08 11:30:26,761 - src.dashboard_app - INFO - 
+✓ Generated 15 visualizations
+2026-02-08 11:30:26,761 - src.dashboard_app - INFO -   Output directory: combined_data_plots
+2026-02-08 11:30:26,762 - src.dashboard_app - INFO - ============================================================
+2026-02-08 11:30:26,762 - src.dashboard_app - INFO - ✓ DASHBOARD APP COMPLETE
+2026-02-08 11:30:26,763 - src.dashboard_app - INFO - ============================================================
+2026-02-08 11:30:26,769 - __main__ - INFO - ✓ Stage 8 completed in 4.37s
