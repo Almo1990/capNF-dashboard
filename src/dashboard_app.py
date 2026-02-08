@@ -1234,7 +1234,9 @@ def create_unified_dashboard(
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>CapNF - Membrane Filtration Analytics</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
@@ -1245,6 +1247,13 @@ def create_unified_dashboard(
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
+            overflow-x: hidden;
+        }}
+        
+        body.menu-open {{
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
         }}
         
         /* Sidebar Navigation */
@@ -1290,6 +1299,8 @@ def create_unified_dashboard(
             display: flex;
             align-items: center;
             gap: 10px;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }}
         
         .nav-item:hover {{
@@ -1567,24 +1578,169 @@ def create_unified_dashboard(
             font-weight: 600;
         }}
         
+        /* Mobile Menu Button */
+        .mobile-menu-btn {{
+            display: none;
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1100;
+            background: white;
+            border: none;
+            padding: 12px 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            cursor: pointer;
+            font-size: 1.5em;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }}
+        
+        .mobile-menu-btn:active {{
+            background: #f0f0f0;
+        }}
+        
+        .mobile-overlay {{
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }}
+        
+        /* Plot responsiveness */
+        .js-plotly-plot {{
+            width: 100% !important;
+        }}
+        
+        .plotly {{
+            width: 100% !important;
+        }}
+        
         /* Responsive */
         @media (max-width: 768px) {{
-            .sidebar {{
-                width: 100%;
-                height: auto;
-                position: relative;
+            .mobile-menu-btn {{
+                display: block;
             }}
+            
+            .sidebar {{
+                width: 85vw;
+                max-width: 320px;
+                position: fixed;
+                left: calc(-85vw);
+                height: 100vh;
+                transition: left 0.3s ease;
+                z-index: 1000;
+                -webkit-overflow-scrolling: touch;
+            }}
+            
+            .sidebar.open {{
+                left: 0;
+            }}
+            
+            .mobile-overlay.active {{
+                display: block;
+            }}
+            
             .main-content {{
                 margin-left: 0;
-                padding: 15px;
+                padding: 60px 15px 15px 15px;
+                width: 100%;
+                max-width: 100vw;
+                overflow-x: hidden;
             }}
+            
             .kpi-grid {{
                 grid-template-columns: 1fr;
+                gap: 15px;
+            }}
+            
+            .dashboard-header {{
+                padding: 20px 15px;
+            }}
+            
+            .dashboard-header h2 {{
+                font-size: 1.5em;
+            }}
+            
+            .section {{
+                padding: 20px 15px;
+            }}
+            
+            .section-title {{
+                font-size: 1.2em;
+            }}
+            
+            .kpi-card {{
+                padding: 15px;
+            }}
+            
+            .kpi-value {{
+                font-size: 1.8em;
+            }}
+            
+            .nav-item {{
+                padding: 18px 25px;
+                font-size: 1.05em;
+            }}
+            
+            .summary-stats {{
+                grid-template-columns: repeat(2, 1fr);
+            }}
+            
+            .forecast-box {{
+                padding: 20px;
+            }}
+            
+            .forecast-value {{
+                font-size: 1.8em;
+            }}
+            
+            .plot-container {{
+                padding: 10px;
+                margin-bottom: 20px;
+            }}
+        }}
+        
+        @media (max-width: 480px) {{
+            .kpi-value {{
+                font-size: 1.6em;
+            }}
+            
+            .dashboard-header h2 {{
+                font-size: 1.3em;
+            }}
+            
+            .summary-stats {{
+                grid-template-columns: 1fr;
+            }}
+        }}
+        
+        /* iPhone specific - safe area support */
+        @supports (padding: max(0px)) {{
+            .mobile-menu-btn {{
+                top: max(15px, env(safe-area-inset-top));
+                left: max(15px, env(safe-area-inset-left));
+            }}
+            
+            @media (max-width: 768px) {{
+                .main-content {{
+                    padding: max(60px, calc(60px + env(safe-area-inset-top))) max(15px, env(safe-area-inset-right)) max(15px, env(safe-area-inset-bottom)) max(15px, env(safe-area-inset-left));
+                }}
             }}
         }}
     </style>
 </head>
 <body>
+    <!-- Mobile Menu Button -->
+    <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+    
+    <!-- Mobile Overlay -->
+    <div class="mobile-overlay" onclick="closeMobileMenu()"></div>
+    
     <!-- Sidebar Navigation -->
     <div class="sidebar">
         <div class="sidebar-header">
@@ -1890,6 +2046,25 @@ def create_unified_dashboard(
     html += """    </div>
     
     <script>
+        // Mobile menu functions
+        function toggleMobileMenu() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.querySelector('.mobile-overlay');
+            const body = document.body;
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('active');
+            body.classList.toggle('menu-open');
+        }
+        
+        function closeMobileMenu() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.querySelector('.mobile-overlay');
+            const body = document.body;
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+            body.classList.remove('menu-open');
+        }
+        
         // Navigation function
         function showSection(sectionId) {
             // Hide all sections
@@ -1908,6 +2083,11 @@ def create_unified_dashboard(
             
             // Add active class to clicked nav item
             event.currentTarget.classList.add('active');
+            
+            // Close mobile menu if open
+            if (window.innerWidth <= 768) {
+                closeMobileMenu();
+            }
             
             // Render plot if needed
             renderPlot(sectionId);
