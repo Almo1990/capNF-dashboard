@@ -1417,6 +1417,8 @@ def create_unified_dashboard(
     cycles: list,
     plots_dir: str,
     config: dict,
+    chemical_cleanings: list = None,
+    fouling_rates: dict = None,
 ) -> str:
     """
     Create unified dashboard with navigation between KPI overview and all plots
@@ -1430,6 +1432,8 @@ def create_unified_dashboard(
         cycles: List of cycle dictionaries
         plots_dir: Output directory
         config: Configuration dictionary
+        chemical_cleanings: List of chemical cleaning timestamp strings
+        fouling_rates: Dictionary with reversible/irreversible fouling rates
 
     Returns:
         Path to unified dashboard HTML file
@@ -2661,6 +2665,8 @@ def create_unified_dashboard(
                 const lowerBound = {lower_bound if lower_bound else "null"};
                 const upperBound = {upper_bound if upper_bound else "null"};
                 const thresholdTMP = 6.0;
+                const chemicalCleanings = {json.dumps(chemical_cleanings if chemical_cleanings else [])};
+                const revFoulingRate = {fouling_rates.get("reversible_fouling_rate_bar_per_day") if fouling_rates and "reversible_fouling_rate_bar_per_day" in fouling_rates else "null"};
 
                 // Build plot traces
                 const traces = [];
@@ -2712,13 +2718,14 @@ def create_unified_dashboard(
                     }});
 
                     // Trace 5: Linear forecast
-                    if (predictionDate) {{
+                    if (predictionDate && predictedValue !== null) {{
                         const lastTime = new Date(csTimestamps[csTimestamps.length - 1]).getTime();
                         const predTime = new Date(predictionDate).getTime();
                         const lastSec = (lastTime - t0) / 1000;
                         const predSec = (predTime - t0) / 1000;
-                        const fitAtLast = irrevSlope * lastSec + irrevIntercept;
-                        const fitAtPred = irrevSlope * predSec + irrevIntercept;
+                        
+                        // Use the last cycle-start TMP as starting point (matches standalone)
+                        const fitAtLast = csTMPs[csTMPs.length - 1];
 
                         const nPts = 20;
                         const fcX = [];
@@ -2728,14 +2735,21 @@ def create_unified_dashboard(
                             const sec = lastSec + frac * (predSec - lastSec);
                             const t = new Date(t0 + sec * 1000);
                             fcX.push(t.toISOString());
-                            fcY.push(irrevSlope * sec + irrevIntercept);
+                            // Interpolate from fitAtLast to predictedValue (matches standalone)
+                            fcY.push(fitAtLast + frac * (predictedValue - fitAtLast));
                         }}
+                        
+                        // Add marker at end point only
+                        const markerSizes = Array(nPts).fill(0);
+                        markerSizes[nPts - 1] = 8;
+                        
                         traces.push({{
                             x: fcX,
                             y: fcY,
-                            mode: 'lines',
+                            mode: 'lines+markers',
                             line: {{color: '#d62728', width: 2.5, dash: 'dot'}},
-                            name: `Linear Forecast (${{forecastHorizonDays}}d)`
+                            marker: {{size: markerSizes, symbol: 'diamond'}},
+                            name: `${{modelType.replace("ml_", "").replace("_", " ").charAt(0).toUpperCase() + modelType.replace("ml_", "").replace("_", " ").slice(1)}} Forecast (${{forecastHorizonDays}}d)`
                         }});
 
                         // Trace 6: Confidence cone
@@ -2747,11 +2761,10 @@ def create_unified_dashboard(
                             for (let i = 0; i < nPts; i++) {{
                                 const frac = i / (nPts - 1);
                                 const t = fcX[i];
-                                const v = fcY[i];
                                 coneXUpper.push(t);
-                                coneYUpper.push(v + frac * (upperBound - fitAtPred));
+                                coneYUpper.push(fitAtLast + frac * (upperBound - fitAtLast));
                                 coneXLower.push(t);
-                                coneYLower.push(v + frac * (lowerBound - fitAtPred));
+                                coneYLower.push(fitAtLast + frac * (lowerBound - fitAtLast));
                             }}
                             traces.push({{
                                 x: coneXUpper,
@@ -2785,6 +2798,23 @@ def create_unified_dashboard(
                     name: 'Operational Limit (6 bar)'
                 }});
 
+                // Trace 8+: Chemical cleaning vertical lines
+                if (chemicalCleanings.length > 0 && csTMPs.length > 0) {{
+                    const yRangeMax = Math.max(...csTMPs) * 1.3;
+                    const yRangeMin = Math.min(...csTMPs) * 0.7;
+                    chemicalCleanings.forEach((cleanTime, idx) => {{
+                        traces.push({{
+                            x: [cleanTime, cleanTime],
+                            y: [yRangeMin, yRangeMax],
+                            mode: 'lines',
+                            line: {{color: 'rgba(40, 167, 69, 0.6)', width: 1.5, dash: 'dash'}},
+                            name: idx === 0 ? 'Chemical Cleaning' : null,
+                            showlegend: idx === 0,
+                            hovertemplate: 'Chemical Cleaning<br>%{{x}}<extra></extra>'
+                        }});
+                    }});
+                }}
+
                 // Layout with annotation
                 const slopePerDay = irrevSlope * 86400;
                 const absSlopeH = Math.abs(irrevSlope * 3600);
@@ -2796,6 +2826,24 @@ def create_unified_dashboard(
 
                 let annText = `<b style="color:${{clsColor}}">⬤ Fouling: ${{classification.toUpperCase()}}</b>`;
                 annText += `<br><b>Irrev. slope:</b> ${{slopePerDay.toFixed(4)}} bar/day (R²=${{rSquared.toFixed(3)}})`;
+                if (revFoulingRate !== null) {{
+                    annText += `<br><b>Rev. slope:</b> ${{revFoulingRate.toFixed(4)}} bar/day`;
+                }}
+                
+                // Calculate time to threshold (matches standalone)
+                if (irrevSlope > 0 && csTimestamps.length > 0) {{
+                    const t0 = new Date(csTimestamps[0]).getTime();
+                    const lastTime = new Date(csTimestamps[csTimestamps.length - 1]).getTime();
+                    const lastSec = (lastTime - t0) / 1000;
+                    const currentFit = irrevSlope * lastSec + irrevIntercept;
+                    const daysTo6 = (thresholdTMP - currentFit) / (irrevSlope * 86400);
+                    if (daysTo6 > 0) {{
+                        annText += `<br><b>Time to 6 bar:</b> ${{Math.round(daysTo6)}} days`;
+                        const thresholdDate = new Date(lastTime + daysTo6 * 86400000);
+                        annText += `<br><b>Threshold date:</b> ${{thresholdDate.toISOString().split('T')[0]}}`;
+                    }}
+                }}
+                
                 annText += `<br><b>Model:</b> ${{modelType}}`;
 
                 const layout = {{
@@ -3028,6 +3076,8 @@ def run_dashboard_app(config_path: str = "config.yaml") -> list:
         cycles,
         plots_dir,
         config["visualization"],
+        chemical_cleanings,
+        fouling_rates,
     )
     if unified_dashboard_file:
         generated_files.append(unified_dashboard_file)
