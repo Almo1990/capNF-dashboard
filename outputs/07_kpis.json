@@ -1,7 +1,7 @@
 [
   {
     "name": "Average Recovery Rate",
-    "value": 85.02650650384922,
+    "value": 85.02479117584065,
     "unit": "%",
     "target": 85,
     "status": "good",
@@ -28,7 +28,7 @@
   },
   {
     "name": "Filtration Cycles per Week",
-    "value": 167.45116512564994,
+    "value": 167.49735285130453,
     "unit": "cycles/week",
     "target": null,
     "status": null,
@@ -46,7 +46,7 @@
   },
   {
     "name": "Current TMP",
-    "value": 3.75,
+    "value": 1.58,
     "unit": "bar",
     "target": 6,
     "status": "good",
@@ -55,7 +55,7 @@
   },
   {
     "name": "Reversible Fouling Rate",
-    "value": 0.0132,
+    "value": 0.0128,
     "unit": "bar/day",
     "target": null,
     "status": null,

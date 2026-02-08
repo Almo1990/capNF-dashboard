@@ -192,14 +192,10 @@ def run_pipeline(
         if run_flags["dashboard"] and not skip_viz:
             index_path = os.path.join(config["paths"]["plots_folder"], "index.html")
             print(f"\n  🎯 MAIN DASHBOARD: {index_path}")
-            print(f"     Opening in your default browser...")
-            # Open in default browser
-            try:
-                abs_path = os.path.abspath(index_path)
-                webbrowser.open(f"file:///{abs_path}".replace("\\", "/"))
-            except Exception as e:
-                print(f"     ⚠️  Could not open browser automatically: {e}")
-                print(f"     Please open manually: {index_path}")
+            print(
+                f"     (Local dashboard opening skipped - deploy to GitHub Pages to view online)"
+            )
+            # Note: Browser will open GitHub Pages URL after deployment instead of local file
 
         if run_flags["kpi_engine"]:
             print(f"\n  📊 KPIs calculated: {len(kpis)}")

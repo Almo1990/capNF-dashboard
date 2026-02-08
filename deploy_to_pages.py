@@ -22,6 +22,7 @@ import sys
 import shutil
 import subprocess
 import tempfile
+import webbrowser
 from datetime import datetime
 from pathlib import Path
 
@@ -148,6 +149,13 @@ def deploy_gh_pages(base_path):
         if push_result.returncode == 0:
             print(f"  [OK] Deployed to GitHub Pages!")
             print(f"  Dashboard will be live in ~1 minute at: {PAGES_URL}")
+            print(f"  Opening dashboard in your default browser...")
+            # Open GitHub Pages URL in browser
+            try:
+                webbrowser.open(PAGES_URL)
+            except Exception as e:
+                print(f"  ⚠️  Could not open browser automatically: {e}")
+                print(f"  Please open manually: {PAGES_URL}")
             return True
         else:
             print(f"  [ERROR] Push failed (exit code {push_result.returncode})")
