@@ -11,9 +11,6 @@ __pycache__/
 Thumbs.db
 .DS_Store
 
-# Raw data files (large, local only)
-Data/*.tsv
-
 # Intermediate pipeline outputs (regenerated on each run)
 outputs/*.parquet
 outputs/*.log
