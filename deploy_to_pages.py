@@ -159,9 +159,8 @@ def deploy_gh_pages(base_path):
 
 
 def push_main_branch(base_path):
-    """Push all changed files to main branch."""
+    """Push all pipeline-relevant changes to main branch (respects .gitignore)."""
     print("  Pushing source changes to main...")
-    # Stage ALL changed/new files (respects .gitignore)
     run_git(["add", "-A"], cwd=base_path)
     commit_msg = f"Auto-update: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     commit_result = run_git(["commit", "-m", commit_msg], cwd=base_path)
