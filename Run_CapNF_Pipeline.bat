@@ -85,7 +85,7 @@ for /f "delims=" %%i in ('where python 2^>nul') do (
 )
 
 REM If Python not found
-echo ❌ Python not found!
+echo [ERROR] Python not found!
 echo.
 echo Please install Python or Anaconda.
 echo Download from:
@@ -96,59 +96,74 @@ pause
 exit /b 1
 
 :found_python
-echo ✅ Using Python: %PYTHON_EXE%
+echo [OK] Using Python: %PYTHON_EXE%
 echo.
 
 "%PYTHON_EXE%" main.py
-
-if %errorlevel% == 0 (
+if !errorlevel! neq 0 (
     echo.
     echo ===============================================================
-    echo     Pipeline completed successfully!
+    echo     Pipeline failed with error code: !errorlevel!
     echo ===============================================================
-    echo.
-    
-    REM Check if git is initialized
-    git status >nul 2>&1
-    if %errorlevel% == 0 (
-        echo [Step 2/3] Deploying to GitHub Pages...
-        echo.
-        
-        git add combined_data_plots\* outputs\*.json 2>nul
-        git commit -m "Dashboard update %date% %time%" >nul 2>&1
-        git push origin main >nul 2>&1
-        
-        if %errorlevel% == 0 (
-            echo ✅ Deployed to GitHub Pages successfully!
-            echo 🌐 Dashboard will be live at: https://Almo1990.github.io/capnf-dashboard/
-            echo    (Wait ~1 minute for GitHub to process the update)
-        ) else (
-            REM Try master branch if main doesn't exist
-            git push origin master >nul 2>&1
-            if %errorlevel% == 0 (
-                echo ✅ Deployed to GitHub Pages successfully!
-                echo 🌐 Dashboard will be live at: https://Almo1990.github.io/capnf-dashboard/
-            ) else (
-                echo ⚠️  Git push skipped (no remote configured or not authenticated)
-                echo    To enable auto-deployment, set up GitHub Pages (see GITHUB_SETUP.txt)
-            )
-        )
-        echo.
-    ) else (
-        echo ⚠️  Git not initialized - skipping deployment
-        echo    To enable auto-deployment, set up GitHub Pages (see GITHUB_SETUP.txt)
-        echo.
-    )
-    
-    echo [Step 3/3] Opening dashboard locally...
-    timeout /t 2 /nobreak >nul
-    start "" "combined_data_plots\index.html"
-) else (
-    echo.
-    echo ===============================================================
-    echo     Pipeline failed with error code: %errorlevel%
-    echo ===============================================================
+    goto :end
 )
+
+echo.
+echo ===============================================================
+echo     Pipeline completed successfully!
+echo ===============================================================
+echo.
+
+REM [Step 2/3] Deploy to GitHub Pages
+REM Auto-detect git: check PATH first, then MinGit in user home
+set "GIT_EXE="
+where git >nul 2>&1
+if !errorlevel! == 0 (
+    set "GIT_EXE=git"
+) else if exist "%USERPROFILE%\MinGit\cmd\git.exe" (
+    set "GIT_EXE=%USERPROFILE%\MinGit\cmd\git.exe"
+    set "PATH=%USERPROFILE%\MinGit\cmd;%PATH%"
+)
+
+if "!GIT_EXE!"=="" (
+    echo [Step 2/3] Skipping GitHub deployment - git not found
+    echo    To enable auto-deployment, install Git or run:
+    echo    python -c "import urllib.request,zipfile,os; ..."
+    echo    See GITHUB_SETUP.txt for details
+    echo.
+    goto :open_dashboard
+)
+
+"!GIT_EXE!" status >nul 2>&1
+if !errorlevel! neq 0 (
+    echo [Step 2/3] Skipping GitHub deployment - git not initialized
+    echo    To enable auto-deployment, set up GitHub Pages - see GITHUB_SETUP.txt
+    echo.
+    goto :open_dashboard
+)
+
+echo [Step 2/3] Deploying to GitHub Pages...
+echo.
+
+REM Deploy to gh-pages branch using the Python auto-updater's deploy logic
+"%PYTHON_EXE%" -c "import subprocess,tempfile,shutil,os,sys; plots='combined_data_plots'; tmp=tempfile.mkdtemp(); r=subprocess.run(['git','clone','--branch','gh-pages','--single-branch','--depth','1','https://github.com/Almo1990/capnf-dashboard.git',tmp],capture_output=True,text=True); [os.remove(os.path.join(tmp,f)) for f in os.listdir(tmp) if f.endswith('.html')]; [shutil.copy2(os.path.join(plots,f),os.path.join(tmp,f)) for f in os.listdir(plots) if f.endswith('.html')]; subprocess.run(['git','add','-A'],cwd=tmp); subprocess.run(['git','commit','-m','Dashboard update'],cwd=tmp,capture_output=True); p=subprocess.run(['git','push','origin','gh-pages'],cwd=tmp,capture_output=True,text=True); print('OK' if p.returncode==0 else 'FAIL:'+p.stderr); shutil.rmtree(tmp,ignore_errors=True)"
+if !errorlevel! == 0 (
+    echo [OK] Deployed to GitHub Pages successfully!
+    echo Dashboard will be live at: https://Almo1990.github.io/capnf-dashboard/
+    echo    Wait about 1 minute for GitHub to process the update
+    echo.
+) else (
+    echo [WARNING] Deployment failed - check authentication
+    echo    To enable auto-deployment, set up GitHub Pages - see GITHUB_SETUP.txt
+    echo.
+)
+
+:open_dashboard
+echo [Step 3/3] Opening dashboard locally...
+timeout /t 2 /nobreak >nul
+start "" "combined_data_plots\index.html"
+
+:end
 
 echo.
 echo Press any key to close this window...

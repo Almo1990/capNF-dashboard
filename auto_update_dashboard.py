@@ -100,9 +100,22 @@ class DataFileHandler(FileSystemEventHandler):
             print("⚠️ Warning: combined_data_plots/ folder not found")
             return
 
+        # Auto-detect git: check PATH first, then MinGit in user home
+        git_exe = "git"
+        import shutil as _shutil
+        if _shutil.which("git") is None:
+            mingit = os.path.join(Path.home(), "MinGit", "cmd", "git.exe")
+            if os.path.exists(mingit):
+                git_exe = mingit
+                os.environ["PATH"] = str(Path(mingit).parent) + os.pathsep + os.environ.get("PATH", "")
+            else:
+                print("⚠️ Warning: Git not found (install Git or MinGit)")
+                print("-" * 60 + "\n")
+                return
+
         # Check if git is configured
         result = subprocess.run(
-            ["git", "status"], cwd=self.base_path, capture_output=True, text=True
+            [git_exe, "status"], cwd=self.base_path, capture_output=True, text=True
         )
 
         if result.returncode != 0:
