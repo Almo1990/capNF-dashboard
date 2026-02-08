@@ -64,7 +64,7 @@ class DataFileHandler(FileSystemEventHandler):
                 self.deploy_to_github()
                 print("\n" + "=" * 60)
                 print("✅ SUCCESS! Dashboard is now live and updated")
-                print("🌐 View at: https://Almo1990.github.io/capnf-dashboard/")
+                print("🌐 View at: https://Almo1990.github.io/capNF-dashboard/")
                 print("=" * 60 + "\n")
             except Exception as e:
                 print(f"\n❌ Error during processing: {e}")
@@ -153,7 +153,7 @@ class DataFileHandler(FileSystemEventHandler):
                 # Set the remote
                 subprocess.run(
                     ["git", "remote", "add", "origin",
-                     "https://github.com/Almo1990/capnf-dashboard.git"],
+                     "https://github.com/Almo1990/capNF-dashboard.git"],
                     cwd=tmp_dir, capture_output=True,
                 )
 
@@ -191,7 +191,7 @@ class DataFileHandler(FileSystemEventHandler):
             if push_result.returncode == 0:
                 print("✅ Deployed to GitHub Pages")
                 print("   Dashboard will be live in ~1 minute")
-                print("   🌐 https://Almo1990.github.io/capnf-dashboard/")
+                print("   🌐 https://Almo1990.github.io/capNF-dashboard/")
             else:
                 print("⚠️ Push to gh-pages failed")
                 print(f"   Error: {push_result.stderr}")
@@ -216,7 +216,7 @@ def main():
     print("  🚀 CapNF Auto-Update Dashboard Service")
     print("=" * 60)
     print(f"\n📁 Monitoring folder: {data_folder}")
-    print("📊 GitHub Pages: https://Almo1990.github.io/capnf-dashboard/")
+    print("📊 GitHub Pages: https://Almo1990.github.io/capNF-dashboard/")
     print("\n💡 Instructions:")
     print("   1. Drop new .tsv files into the Data/ folder")
     print("   2. Pipeline will run automatically (2-5 minutes)")

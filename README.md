@@ -1,6 +1,6 @@
 # Membrane Filtration Analytics Pipeline
 
-**PWN CapNF System - Modular Data Analytics Pipeline**
+**CapNF System - Modular Data Analytics Pipeline**
 
 Transform your membrane filtration TSV data into actionable insights with automated fouling detection, cleaning cycle analysis, predictive forecasting, and interactive dashboards.
 
@@ -408,7 +408,7 @@ pip install --upgrade -r requirements.txt
 
 ## 🎓 Citation
 
-**PWN CapNF System**  
+**CapNF System**  
 Membrane Filtration Analytics Pipeline v1.0  
 Developed for nanofiltration performance monitoring and predictive maintenance
 

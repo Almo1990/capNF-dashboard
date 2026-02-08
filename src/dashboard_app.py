@@ -693,7 +693,7 @@ def create_kpi_dashboard(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PWN CapNF - KPI Dashboard</title>
+    <title>CapNF - KPI Dashboard</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{
@@ -907,7 +907,7 @@ def create_kpi_dashboard(
 <body>
     <div class="container">
         <div class="header">
-            <h1>🏭 PWN CapNF System</h1>
+            <h1>🏭 CapNF System</h1>
             <p>Membrane Filtration Analytics Dashboard</p>
             <div class="timestamp">Generated: {pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")}</div>
         </div>
@@ -1235,7 +1235,7 @@ def create_unified_dashboard(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PWN CapNF - Membrane Filtration Analytics</title>
+    <title>CapNF - Membrane Filtration Analytics</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
@@ -1588,7 +1588,7 @@ def create_unified_dashboard(
     <!-- Sidebar Navigation -->
     <div class="sidebar">
         <div class="sidebar-header">
-            <h1>🏭 PWN CapNF</h1>
+            <h1>🏭 CapNF</h1>
             <p>Membrane Filtration Analytics</p>
         </div>
         

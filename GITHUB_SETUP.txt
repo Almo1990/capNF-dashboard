@@ -30,7 +30,7 @@ STEP-BY-STEP SETUP (One-Time Only)
 
 1. Go to: https://github.com/new
 2. Repository name: capnf-dashboard
-3. Description: PWN CapNF Membrane Filtration Analytics Dashboard
+3. Description: CapNF Membrane Filtration Analytics Dashboard
 4. Visibility: 
    - Choose "Public" (free) OR
    - Choose "Private" (requires GitHub Pro - $4/month)

@@ -67,7 +67,7 @@ def print_banner():
 ===============================================================
                                                                
         MEMBRANE FILTRATION ANALYTICS PIPELINE                
-        PWN CapNF System - Modular Architecture               
+        CapNF System - Modular Architecture               
                                                                
 ===============================================================
     """
