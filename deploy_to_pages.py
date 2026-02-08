@@ -40,7 +40,9 @@ def find_git():
     mingit = Path.home() / "MinGit" / "cmd" / "git.exe"
     if mingit.exists():
         # Add to PATH so subprocess calls with 'git' also work
-        os.environ["PATH"] = str(mingit.parent) + os.pathsep + os.environ.get("PATH", "")
+        os.environ["PATH"] = (
+            str(mingit.parent) + os.pathsep + os.environ.get("PATH", "")
+        )
         return str(mingit)
 
     return None
@@ -85,19 +87,32 @@ def deploy_gh_pages(base_path):
     tmp_dir = os.path.join(tmp_parent, "repo")
     try:
         print("  Cloning gh-pages branch from GitHub...")
-        clone_result = run_git([
-            "clone", "--branch", "gh-pages", "--single-branch",
-            "--depth", "1", GITHUB_REPO_URL, tmp_dir,
-        ], capture=False)
+        clone_result = run_git(
+            [
+                "clone",
+                "--branch",
+                "gh-pages",
+                "--single-branch",
+                "--depth",
+                "1",
+                GITHUB_REPO_URL,
+                tmp_dir,
+            ],
+            capture=False,
+        )
 
         if clone_result.returncode != 0:
             print("  gh-pages branch not found, creating it...")
             run_git(["init"], cwd=tmp_dir, capture=False)
             run_git(["checkout", "--orphan", "gh-pages"], cwd=tmp_dir, capture=False)
-            run_git(["remote", "add", "origin", GITHUB_REPO_URL], cwd=tmp_dir, capture=False)
+            run_git(
+                ["remote", "add", "origin", GITHUB_REPO_URL], cwd=tmp_dir, capture=False
+            )
 
         # Configure git user in temp repo
-        run_git(["config", "user.email", "almo1990@users.noreply.github.com"], cwd=tmp_dir)
+        run_git(
+            ["config", "user.email", "almo1990@users.noreply.github.com"], cwd=tmp_dir
+        )
         run_git(["config", "user.name", "Almo1990"], cwd=tmp_dir)
 
         # Remove old HTML files
@@ -126,7 +141,9 @@ def deploy_gh_pages(base_path):
             return False
 
         print("  Pushing to gh-pages on GitHub...")
-        push_result = run_git(["push", "origin", "gh-pages"], cwd=tmp_dir, capture=False)
+        push_result = run_git(
+            ["push", "origin", "gh-pages"], cwd=tmp_dir, capture=False
+        )
 
         if push_result.returncode == 0:
             print(f"  [OK] Deployed to GitHub Pages!")
@@ -142,16 +159,21 @@ def deploy_gh_pages(base_path):
 
 
 def push_main_branch(base_path):
-    """Push source changes to main branch."""
+    """Push all changed files to main branch."""
     print("  Pushing source changes to main...")
-    run_git(["add", "combined_data_plots/", "outputs/"], cwd=base_path)
+    # Stage ALL changed/new files (respects .gitignore)
+    run_git(["add", "-A"], cwd=base_path)
     commit_msg = f"Auto-update: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    run_git(["commit", "-m", commit_msg], cwd=base_path)
-    result = run_git(["push", "origin", "main"], cwd=base_path)
+    commit_result = run_git(["commit", "-m", commit_msg], cwd=base_path)
+    if commit_result.returncode != 0:
+        if "nothing to commit" in (commit_result.stdout or ""):
+            print("  [OK] Main branch already up to date")
+            return
+    result = run_git(["push", "origin", "main"], cwd=base_path, capture=False)
     if result.returncode == 0:
         print("  [OK] Main branch updated")
     else:
-        print(f"  [WARNING] Main push failed: {result.stderr}")
+        print(f"  [WARNING] Main push failed (exit code {result.returncode})")
 
 
 def main():

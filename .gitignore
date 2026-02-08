@@ -1,0 +1,21 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Large data files (tracked locally, not needed on GitHub)
+Data/*.tsv
+
+# Device-specific output files
+outputs/*-DESKTOP-*.parquet
+outputs/*-DESKTOP-*.log
+outputs/*-PKA-*.parquet
+outputs/*-PKA-*.log
