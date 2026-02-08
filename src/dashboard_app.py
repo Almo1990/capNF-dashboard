@@ -344,7 +344,7 @@ def create_tmp_plot_with_forecast(
 ) -> str:
     """
     Create TMP forecast plot with irreversible fouling trend, dual forecasts,
-    chemical cleaning markers, confidence cone, and 8-bar threshold.
+    chemical cleaning markers, confidence cone, and 6-bar threshold.
 
     Args:
         df: Full DataFrame (not downsampled) for accurate slope
@@ -475,7 +475,7 @@ def create_tmp_plot_with_forecast(
 
     # ── Trace 5: Linear forecast (extrapolation of irreversible trend) ───
     forecast_horizon = forecast.get("forecast_horizon_days", 7) if forecast else 7
-    threshold_tmp = 8.0
+    threshold_tmp = 6.0
 
     if irrev_slope_info and forecast:
         last_time = max(valid_cycle_times)
@@ -565,7 +565,7 @@ def create_tmp_plot_with_forecast(
                 )
             )
 
-    # ── Trace 8: 8-bar threshold line ────────────────────────────────────
+    # ── Trace 8: 6-bar threshold line ────────────────────────────────────
     x_min = df["TimeStamp"].min()
     x_max = (
         pd.Timestamp(forecast["prediction_date"])
@@ -578,7 +578,7 @@ def create_tmp_plot_with_forecast(
             y=[threshold_tmp, threshold_tmp],
             mode="lines",
             line=dict(color="rgba(220, 53, 69, 0.7)", width=2, dash="longdash"),
-            name="Operational Limit (8 bar)",
+            name="Operational Limit (6 bar)",
         )
     )
 
@@ -665,7 +665,7 @@ def create_tmp_plot_with_forecast(
                 irrev_slope_info["slope"] * 86400
             )
             if days_to_8 > 0:
-                ann_lines.append(f"<b>Time to 8 bar:</b> {days_to_8:.0f} days")
+                ann_lines.append(f"<b>Time to 6 bar:</b> {days_to_8:.0f} days")
                 threshold_date = max(valid_cycle_times) + pd.Timedelta(days=days_to_8)
                 ann_lines.append(
                     f"<b>Threshold date:</b> {threshold_date.strftime('%Y-%m-%d')}"
@@ -797,9 +797,9 @@ def create_tmp_plot_with_forecast(
         }}
 
         // Time to threshold
-        let daysTo8 = null;
+        let daysTo6 = null;
         if (slope > 0) {{
-            daysTo8 = (thresholdTMP - fittedAtLast) / slopePerDay;
+            daysTo6 = (thresholdTMP - fittedAtLast) / slopePerDay;
         }}
 
         const plotDiv = document.getElementsByClassName('plotly')[0];
@@ -845,8 +845,8 @@ def create_tmp_plot_with_forecast(
         // Build annotation
         let annText = `<b style="color:${{clsColor}}">⬤ Fouling: ${{classification.toUpperCase()}}</b>`;
         annText += `<br><b>Irrev. slope:</b> ${{slopePerDay.toFixed(4)}} bar/day (R²=${{r2.toFixed(3)}})`;
-        if (daysTo8 !== null && daysTo8 > 0) {{
-            annText += `<br><b>Time to 8 bar:</b> ${{Math.round(daysTo8)}} days`;
+        if (daysTo6 !== null && daysTo6 > 0) {{
+            annText += `<br><b>Time to 6 bar:</b> ${{Math.round(daysTo6)}} days`;
         }}
         const modelLabel = isFullRange ? originalModelType : 'dynamic (filtered range)';
         annText += `<br><b>Model:</b> ${{modelLabel}}`;
@@ -1238,7 +1238,7 @@ def create_kpi_dashboard(
             and tmp_forecast["time_to_threshold_days"]
         ):
             days = tmp_forecast["time_to_threshold_days"]
-            html_content += f'<div class="forecast-detail">⏱️ Time to 8 bar threshold: {days:.1f} days</div>'
+            html_content += f'<div class="forecast-detail">⏱️ Time to 6 bar threshold: {days:.1f} days</div>'
 
         if "confidence" in tmp_forecast:
             html_content += f'<div class="forecast-detail">📊 Confidence Level: {tmp_forecast["confidence"] * 100:.0f}%</div>'
@@ -2147,7 +2147,7 @@ def create_unified_dashboard(
             and tmp_forecast["time_to_threshold_days"]
         ):
             days = tmp_forecast["time_to_threshold_days"]
-            html += f'                    <div class="forecast-detail">⏱️ Time to 8 bar threshold: {days:.1f} days</div>'
+            html += f'                    <div class="forecast-detail">⏱️ Time to 6 bar threshold: {days:.1f} days</div>'
 
         if "confidence" in tmp_forecast:
             html += f'                    <div class="forecast-detail">📊 Confidence Level: {tmp_forecast["confidence"] * 100:.0f}%</div>'
@@ -2571,40 +2571,288 @@ def create_unified_dashboard(
             
 """
 
-    # Add TMP forecast plot - Load from standalone redesigned HTML file
-    html += """            if (sectionId === 'tmp-forecast') {
-                // Load the redesigned TMP forecast plot from TMP_forecast.html
-                fetch('TMP_forecast.html')
-                    .then(response => response.text())
-                    .then(html => {
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(html, 'text/html');
-                        const plotDiv = doc.querySelector('.plotly');
-                        const scripts = doc.querySelectorAll('script');
-                        
-                        // Extract the plot div and inject into our container
-                        const container = document.getElementById('plot-tmp-forecast');
-                        if (plotDiv && container) {
-                            container.innerHTML = plotDiv.outerHTML;
-                            
-                            // Execute any embedded scripts
-                            scripts.forEach(script => {
-                                if (script.textContent && !script.src) {
-                                    try {
-                                        eval(script.textContent);
-                                    } catch(e) {
-                                        console.error('Error executing TMP forecast script:', e);
-                                    }
-                                }
-                            });
-                        }
-                    })
-                    .catch(err => {
-                        console.error('Failed to load TMP_forecast.html:', err);
-                        document.getElementById('plot-tmp-forecast').innerHTML = 
-                            '<div style="padding: 40px; text-align: center; color: #dc3545;">⚠️ Failed to load TMP forecast plot. Please ensure TMP_forecast.html exists.</div>';
-                    });
-            }
+    # Add TMP forecast plot - Generate inline to avoid CORS issues
+    # Extract cycle-start data for embedding
+    cycle_times = []
+    cycle_tmp_starts = []
+    if cycles:
+        for c in cycles:
+            tmp_s = (
+                c.get("tmp_start")
+                if isinstance(c, dict)
+                else getattr(c, "tmp_start", None)
+            )
+            t_s = (
+                c.get("start_time")
+                if isinstance(c, dict)
+                else getattr(c, "start_time", None)
+            )
+            if tmp_s is not None and t_s is not None:
+                cycle_times.append(str(pd.to_datetime(t_s)))
+                cycle_tmp_starts.append(float(tmp_s))
+
+    # IQR filtering
+    valid_cycle_times = []
+    valid_cycle_tmps = []
+    if len(cycle_tmp_starts) >= 4:
+        arr = np.array(cycle_tmp_starts)
+        q1, q3 = np.percentile(arr, 25), np.percentile(arr, 75)
+        iqr = q3 - q1
+        lb, ub = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+        for t, v in zip(cycle_times, cycle_tmp_starts):
+            if lb <= v <= ub:
+                valid_cycle_times.append(t)
+                valid_cycle_tmps.append(v)
+    else:
+        valid_cycle_times = cycle_times
+        valid_cycle_tmps = cycle_tmp_starts
+
+    # Get forecast data
+    tmp_forecast = forecasts.get("tmp") if forecasts else {}
+    forecast_horizon = tmp_forecast.get("forecast_horizon_days", 7)
+    predicted_value = tmp_forecast.get("predicted_value")
+    prediction_date = tmp_forecast.get("prediction_date")
+    model_type = tmp_forecast.get("model_type", "linear")
+    lower_bound = tmp_forecast.get("lower_bound")
+    upper_bound = tmp_forecast.get("upper_bound")
+
+    # Calculate irreversible fouling trend
+    irrev_slope = 0
+    irrev_intercept = 0
+    r_squared = 0
+    if len(valid_cycle_times) > 2:
+        t0_dt = pd.to_datetime(min(valid_cycle_times))
+        cs_seconds = np.array(
+            [(pd.to_datetime(t) - t0_dt).total_seconds() for t in valid_cycle_times]
+        )
+        cs_values = np.array(valid_cycle_tmps)
+        coeffs = np.polyfit(cs_seconds, cs_values, 1)
+        fit_vals = coeffs[0] * cs_seconds + coeffs[1]
+        y_mean = cs_values.mean()
+        ss_tot = np.sum((cs_values - y_mean) ** 2)
+        ss_res = np.sum((cs_values - fit_vals) ** 2)
+        r_squared = float(1 - (ss_res / ss_tot) if ss_tot != 0 else 0)
+        irrev_slope = float(coeffs[0])
+        irrev_intercept = float(coeffs[1])
+
+    # Generate TMP forecast plot inline - need TMP data arrays
+    tmp_timestamps = df_viz["TimeStamp"].dt.strftime("%Y-%m-%d %H:%M:%S").tolist()
+    tmp_raw_values = df_viz["TMP"].tolist()
+    tmp_sma_values = df_viz["TMP_SMA"].tolist() if "TMP_SMA" in df_viz.columns else []
+
+    html += f"""            if (sectionId === 'tmp-forecast') {{
+                // TMP raw data arrays
+                const timestamps = {tmp_timestamps};
+                const tmp_values = {tmp_raw_values};
+                const tmp_sma_values = {tmp_sma_values};
+                
+                // Embedded TMP forecast data
+                const csTimestamps = {valid_cycle_times};
+                const csTMPs = {valid_cycle_tmps};
+                const irrevSlope = {irrev_slope};
+                const irrevIntercept = {irrev_intercept};
+                const rSquared = {r_squared};
+                const forecastHorizonDays = {forecast_horizon};
+                const predictedValue = {predicted_value if predicted_value else "null"};
+                const predictionDate = "{prediction_date if prediction_date else ""}";
+                const modelType = "{model_type}";
+                const lowerBound = {lower_bound if lower_bound else "null"};
+                const upperBound = {upper_bound if upper_bound else "null"};
+                const thresholdTMP = 6.0;
+
+                // Build plot traces
+                const traces = [];
+
+                // Trace 1: Raw TMP (background)
+                traces.push({{
+                    x: timestamps,
+                    y: tmp_values,
+                    mode: 'lines',
+                    line: {{color: '{config["colors"][0]}', width: 1}},
+                    name: 'TMP (Raw)',
+                    opacity: 0.25
+                }});
+
+                // Trace 2: TMP SMA
+                if (tmp_sma_values.length > 0) {{
+                    traces.push({{
+                        x: timestamps,
+                        y: tmp_sma_values,
+                        mode: 'lines',
+                        line: {{color: '{config["colors"][0]}', width: 1.5}},
+                        name: 'TMP (SMA)',
+                        opacity: 0.5
+                    }});
+                }}
+
+                // Trace 3: Cycle-start scatter
+                if (csTimestamps.length > 0) {{
+                    traces.push({{
+                        x: csTimestamps,
+                        y: csTMPs,
+                        mode: 'markers',
+                        marker: {{color: 'rgba(255, 140, 0, 0.6)', size: 4}},
+                        name: 'Cycle-start TMP'
+                    }});
+
+                    // Trace 4: Irreversible fouling trend
+                    const t0 = new Date(csTimestamps[0]).getTime();
+                    const fitY = csTimestamps.map(t => {{
+                        const sec = (new Date(t).getTime() - t0) / 1000;
+                        return irrevSlope * sec + irrevIntercept;
+                    }});
+                    traces.push({{
+                        x: csTimestamps,
+                        y: fitY,
+                        mode: 'lines',
+                        line: {{color: 'black', width: 2.5, dash: 'dash'}},
+                        name: 'Irreversible Fouling Trend'
+                    }});
+
+                    // Trace 5: Linear forecast
+                    if (predictionDate) {{
+                        const lastTime = new Date(csTimestamps[csTimestamps.length - 1]).getTime();
+                        const predTime = new Date(predictionDate).getTime();
+                        const lastSec = (lastTime - t0) / 1000;
+                        const predSec = (predTime - t0) / 1000;
+                        const fitAtLast = irrevSlope * lastSec + irrevIntercept;
+                        const fitAtPred = irrevSlope * predSec + irrevIntercept;
+
+                        const nPts = 20;
+                        const fcX = [];
+                        const fcY = [];
+                        for (let i = 0; i < nPts; i++) {{
+                            const frac = i / (nPts - 1);
+                            const sec = lastSec + frac * (predSec - lastSec);
+                            const t = new Date(t0 + sec * 1000);
+                            fcX.push(t.toISOString());
+                            fcY.push(irrevSlope * sec + irrevIntercept);
+                        }}
+                        traces.push({{
+                            x: fcX,
+                            y: fcY,
+                            mode: 'lines',
+                            line: {{color: '#d62728', width: 2.5, dash: 'dot'}},
+                            name: `Linear Forecast (${{forecastHorizonDays}}d)`
+                        }});
+
+                        // Trace 6: Confidence cone
+                        if (lowerBound !== null && upperBound !== null) {{
+                            const coneXUpper = [];
+                            const coneYUpper = [];
+                            const coneXLower = [];
+                            const coneYLower = [];
+                            for (let i = 0; i < nPts; i++) {{
+                                const frac = i / (nPts - 1);
+                                const t = fcX[i];
+                                const v = fcY[i];
+                                coneXUpper.push(t);
+                                coneYUpper.push(v + frac * (upperBound - fitAtPred));
+                                coneXLower.push(t);
+                                coneYLower.push(v + frac * (lowerBound - fitAtPred));
+                            }}
+                            traces.push({{
+                                x: coneXUpper,
+                                y: coneYUpper,
+                                mode: 'lines',
+                                line: {{width: 0}},
+                                showlegend: false,
+                                hoverinfo: 'skip'
+                            }});
+                            traces.push({{
+                                x: coneXLower,
+                                y: coneYLower,
+                                mode: 'lines',
+                                line: {{width: 0}},
+                                fill: 'tonexty',
+                                fillcolor: 'rgba(214, 39, 40, 0.12)',
+                                name: '95% Confidence'
+                            }});
+                        }}
+                    }}
+                }}
+
+                // Trace 7: 6-bar threshold
+                const xMin = timestamps[0];
+                const xMax = predictionDate || timestamps[timestamps.length - 1];
+                traces.push({{
+                    x: [xMin, xMax],
+                    y: [thresholdTMP, thresholdTMP],
+                    mode: 'lines',
+                    line: {{color: 'rgba(220, 53, 69, 0.7)', width: 2, dash: 'longdash'}},
+                    name: 'Operational Limit (6 bar)'
+                }});
+
+                // Layout with annotation
+                const slopePerDay = irrevSlope * 86400;
+                const absSlopeH = Math.abs(irrevSlope * 3600);
+                let classification = 'low';
+                let clsColor = '#28a745';
+                if (absSlopeH >= 0.01) {{ classification = 'critical'; clsColor = '#dc3545'; }}
+                else if (absSlopeH >= 0.005) {{ classification = 'high'; clsColor = '#fd7e14'; }}
+                else if (absSlopeH >= 0.001) {{ classification = 'medium'; clsColor = '#ffc107'; }}
+
+                let annText = `<b style="color:${{clsColor}}">⬤ Fouling: ${{classification.toUpperCase()}}</b>`;
+                annText += `<br><b>Irrev. slope:</b> ${{slopePerDay.toFixed(4)}} bar/day (R²=${{rSquared.toFixed(3)}})`;
+                annText += `<br><b>Model:</b> ${{modelType}}`;
+
+                const layout = {{
+                    title: '<b>TMP Forecast — Irreversible Fouling Trend</b>',
+                    xaxis: {{
+                        title: 'Time',
+                        gridcolor: 'rgba(200, 200, 200, 0.3)',
+                        showgrid: true,
+                        rangeselector: {{
+                            buttons: [
+                                {{count: 1, label: '1h', step: 'hour', stepmode: 'backward'}},
+                                {{count: 12, label: '12h', step: 'hour', stepmode: 'backward'}},
+                                {{count: 1, label: '1d', step: 'day', stepmode: 'backward'}},
+                                {{count: 7, label: '1w', step: 'day', stepmode: 'backward'}},
+                                {{count: 1, label: '1m', step: 'month', stepmode: 'backward'}},
+                                {{count: 6, label: '6m', step: 'month', stepmode: 'backward'}},
+                                {{step: 'all', label: 'All'}}
+                            ]
+                        }},
+                        rangeslider: {{visible: true, thickness: 0.05}}
+                    }},
+                    yaxis: {{
+                        title: 'TMP (bar)',
+                        gridcolor: 'rgba(200, 200, 200, 0.3)',
+                        showgrid: true,
+                        fixedrange: false
+                    }},
+                    height: 750,
+                    margin: {{t: 80, b: 100, l: 80, r: 150}},
+                    showlegend: true,
+                    hovermode: 'x unified',
+                    dragmode: 'zoom',
+                    legend: {{
+                        orientation: 'v',
+                        yanchor: 'top',
+                        y: 1,
+                        xanchor: 'left',
+                        x: 1.08
+                    }},
+                    annotations: [{{
+                        x: 0.98,
+                        y: 0.98,
+                        xref: 'paper',
+                        yref: 'paper',
+                        text: annText,
+                        showarrow: false,
+                        bgcolor: 'rgba(255, 255, 255, 0.92)',
+                        bordercolor: 'rgba(0, 0, 0, 0.3)',
+                        borderwidth: 1,
+                        borderpad: 8,
+                        font: {{size: 11}},
+                        align: 'left',
+                        xanchor: 'right',
+                        yanchor: 'top'
+                    }}]
+                }};
+
+                Plotly.newPlot('plot-tmp-forecast', traces, layout, {{responsive: true}});
+            }}
 """
 
     # Add cycle comparison plot
