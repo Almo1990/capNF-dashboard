@@ -1390,7 +1390,11 @@ def create_cycle_comparison_plot(cycles: list, plots_dir: str, config: dict) -> 
         xaxis=dict(title="Cycle ID"),
         yaxis=dict(title="TMP Slope (bar/hour)"),
         yaxis2=dict(
-            title="Duration (hours)", overlaying="y", side="right", fixedrange=True
+            title="Duration (hours)",
+            overlaying="y",
+            side="right",
+            fixedrange=True,
+            range=[0, 1.5],
         ),
         height=600,
         showlegend=True,
@@ -2893,7 +2897,8 @@ def create_unified_dashboard(
                         title: 'Duration (hours)',
                         overlaying: 'y',
                         side: 'right',
-                        fixedrange: true
+                        fixedrange: true,
+                        range: [0, 1.5]
                     },
                     height: 600,
                     margin: {t: 50, b: 80, l: 80, r: 80}
