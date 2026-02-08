@@ -339,31 +339,35 @@ def create_tmp_plot_with_forecast(
     config: dict,
     forecast: dict = None,
     cycles: list = None,
+    chemical_cleanings: list = None,
+    fouling_rates: dict = None,
 ) -> str:
     """
-    Create special TMP plot with linear fit and forecast
+    Create TMP forecast plot with irreversible fouling trend, dual forecasts,
+    chemical cleaning markers, confidence cone, and 8-bar threshold.
 
     Args:
         df: Full DataFrame (not downsampled) for accurate slope
         plots_dir: Output directory
-        config: Visualization configuration
-        forecast: Forecast dictionary
-        cycles: Cycle information
+        config: Full configuration dictionary
+        forecast: Forecast dictionary (linear or ML)
+        cycles: Cycle information (list of dicts with tmp_start, start_time, etc.)
+        chemical_cleanings: List of chemical cleaning timestamp strings
+        fouling_rates: Dict with reversible/irreversible fouling rates
 
     Returns:
         Path to generated file
     """
-    logger.info("Creating TMP plot with forecast...")
+    logger.info("Creating TMP forecast plot (redesigned)...")
 
     fig = go.Figure()
 
-    # Use visualization data for plotting
+    # Use visualization data for background TMP traces
     df_viz_path = config["paths"]["processed_viz_data"]
     df_viz = load_parquet(df_viz_path)
-
     colors = config["visualization"]["colors"]
 
-    # Add raw TMP
+    # ── Trace 1: Raw TMP (background context) ───────────────────────────
     fig.add_trace(
         go.Scatter(
             x=df_viz["TimeStamp"],
@@ -371,303 +375,506 @@ def create_tmp_plot_with_forecast(
             mode="lines",
             line=dict(color=colors[0], width=1),
             name="TMP (Raw)",
-            opacity=0.4,
+            opacity=0.25,
         )
     )
 
-    # Add TMP SMA
+    # ── Trace 2: TMP SMA (background context) ───────────────────────────
     if "TMP_SMA" in df_viz.columns:
         fig.add_trace(
             go.Scatter(
                 x=df_viz["TimeStamp"],
                 y=df_viz["TMP_SMA"],
                 mode="lines",
-                line=dict(color=colors[0], width=2),
+                line=dict(color=colors[0], width=1.5),
                 name="TMP (SMA)",
+                opacity=0.5,
             )
         )
 
-    # Add linear fit
-    df_tmp = df[["TimeStamp", "TMP"]].dropna()
-    slope_info = {}
-    if len(df_tmp) > 1:
-        from .utils.time_utils import convert_to_seconds_since_start
+    # ── Extract cycle-start TMP values ───────────────────────────────────
+    cycle_times = []
+    cycle_tmp_starts = []
 
-        time_numeric = convert_to_seconds_since_start(df_tmp["TimeStamp"])
-        coeffs = np.polyfit(time_numeric, df_tmp["TMP"], 1)
-        fit_values = coeffs[0] * time_numeric + coeffs[1]
+    if cycles:
+        for c in cycles:
+            # Support both dict and object access
+            tmp_s = (
+                c.get("tmp_start")
+                if isinstance(c, dict)
+                else getattr(c, "tmp_start", None)
+            )
+            t_s = (
+                c.get("start_time")
+                if isinstance(c, dict)
+                else getattr(c, "start_time", None)
+            )
+            if tmp_s is not None and t_s is not None:
+                cycle_times.append(pd.to_datetime(t_s))
+                cycle_tmp_starts.append(float(tmp_s))
 
-        # Calculate R²
-        y_mean = df_tmp["TMP"].mean()
-        ss_tot = np.sum((df_tmp["TMP"] - y_mean) ** 2)
-        ss_res = np.sum((df_tmp["TMP"] - fit_values) ** 2)
-        r_squared = 1 - (ss_res / ss_tot) if ss_tot != 0 else 0
+    # IQR outlier filtering on cycle-start TMP values
+    valid_cycle_times = []
+    valid_cycle_tmps = []
+    if len(cycle_tmp_starts) >= 4:
+        arr = np.array(cycle_tmp_starts)
+        q1, q3 = np.percentile(arr, 25), np.percentile(arr, 75)
+        iqr = q3 - q1
+        lb, ub = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+        for t, v in zip(cycle_times, cycle_tmp_starts):
+            if lb <= v <= ub:
+                valid_cycle_times.append(t)
+                valid_cycle_tmps.append(v)
+    else:
+        valid_cycle_times = cycle_times
+        valid_cycle_tmps = cycle_tmp_starts
 
-        slope_info = {
+    # ── Trace 3: Cycle-start TMP scatter (irreversible fouling envelope) ─
+    if valid_cycle_times:
+        fig.add_trace(
+            go.Scatter(
+                x=valid_cycle_times,
+                y=valid_cycle_tmps,
+                mode="markers",
+                marker=dict(color="rgba(255, 140, 0, 0.6)", size=4, symbol="circle"),
+                name="Cycle-start TMP",
+            )
+        )
+
+    # ── Trace 4: Irreversible fouling trend (linear fit on cycle-starts) ─
+    irrev_slope_info = {}
+    if len(valid_cycle_times) > 2:
+        t0 = min(valid_cycle_times)
+        cs_seconds = np.array([(t - t0).total_seconds() for t in valid_cycle_times])
+        cs_values = np.array(valid_cycle_tmps)
+        coeffs = np.polyfit(cs_seconds, cs_values, 1)
+        fit_vals = coeffs[0] * cs_seconds + coeffs[1]
+
+        # R²
+        y_mean = cs_values.mean()
+        ss_tot = np.sum((cs_values - y_mean) ** 2)
+        ss_res = np.sum((cs_values - fit_vals) ** 2)
+        r_sq = 1 - (ss_res / ss_tot) if ss_tot != 0 else 0
+
+        irrev_slope_info = {
             "slope": coeffs[0],
             "intercept": coeffs[1],
-            "r_squared": r_squared,
+            "r_squared": r_sq,
+            "t0": t0,
         }
 
         fig.add_trace(
             go.Scatter(
-                x=df_tmp["TimeStamp"],
-                y=fit_values,
+                x=valid_cycle_times,
+                y=fit_vals.tolist(),
                 mode="lines",
-                line=dict(color="black", width=2, dash="dash"),
-                name="Linear Fit",
+                line=dict(color="black", width=2.5, dash="dash"),
+                name="Irreversible Fouling Trend",
             )
         )
 
-    # Add forecast if available
-    if forecast and "predicted_value" in forecast:
-        last_time = df["TimeStamp"].iloc[-1]
-        pred_time = pd.Timestamp(forecast["prediction_date"])
+    # ── Trace 5: Linear forecast (extrapolation of irreversible trend) ───
+    forecast_horizon = forecast.get("forecast_horizon_days", 7) if forecast else 7
+    threshold_tmp = 8.0
 
-        # Calculate fitted line value at last_time to start forecast from trend line
-        if slope_info:
-            # Use the same reference (df_tmp start) as the original fit
-            last_time_seconds = (last_time - df_tmp["TimeStamp"].min()).total_seconds()
-            fitted_value_at_last = (
-                slope_info["slope"] * last_time_seconds + slope_info["intercept"]
-            )
-            # Extrapolate the fit line to the forecast point for a true continuation
-            pred_time_seconds = (pred_time - df_tmp["TimeStamp"].min()).total_seconds()
-            forecast_end_value = (
-                slope_info["slope"] * pred_time_seconds + slope_info["intercept"]
-            )
-        else:
-            # Fallback to last actual data point if no fit available
-            fitted_value_at_last = df["TMP"].iloc[-1]
-            forecast_end_value = forecast["predicted_value"]
+    if irrev_slope_info and forecast:
+        last_time = max(valid_cycle_times)
+        pred_time = pd.Timestamp(forecast["prediction_date"])
+        t0 = irrev_slope_info["t0"]
+
+        last_sec = (last_time - t0).total_seconds()
+        pred_sec = (pred_time - t0).total_seconds()
+
+        fit_at_last = (
+            irrev_slope_info["slope"] * last_sec + irrev_slope_info["intercept"]
+        )
+        fit_at_pred = (
+            irrev_slope_info["slope"] * pred_sec + irrev_slope_info["intercept"]
+        )
+
+        # Generate intermediate points for smooth line
+        n_pts = 20
+        interp_secs = np.linspace(last_sec, pred_sec, n_pts)
+        interp_times = [t0 + pd.Timedelta(seconds=float(s)) for s in interp_secs]
+        interp_vals = (
+            irrev_slope_info["slope"] * interp_secs + irrev_slope_info["intercept"]
+        ).tolist()
 
         fig.add_trace(
             go.Scatter(
-                x=[last_time, pred_time],
-                y=[fitted_value_at_last, forecast_end_value],
-                mode="lines+markers",
-                line=dict(color="red", width=2, dash="dot"),
-                name="Forecast",
+                x=interp_times,
+                y=interp_vals,
+                mode="lines",
+                line=dict(color="#d62728", width=2.5, dash="dot"),
+                name=f"Linear Forecast ({forecast_horizon}d)",
             )
         )
 
-        # Add confidence bounds if available
-        if "lower_bound" in forecast and "upper_bound" in forecast:
+        # ── Trace 6: ML forecast line (if ML data available) ────────────
+        # Check if the forecast dict contains ML-specific keys
+        ml_forecast_value = forecast.get("predicted_value")
+        model_type = forecast.get("model_type", "linear")
+        if ml_forecast_value is not None and "ml_" in str(model_type):
             fig.add_trace(
                 go.Scatter(
-                    x=[pred_time, pred_time, pred_time],
-                    y=[
-                        forecast["lower_bound"],
-                        forecast["predicted_value"],
-                        forecast["upper_bound"],
-                    ],
-                    mode="markers",
-                    marker=dict(color="red", size=8),
-                    name="95% CI",
-                    showlegend=False,
+                    x=[last_time, pred_time],
+                    y=[fit_at_last, ml_forecast_value],
+                    mode="lines+markers",
+                    line=dict(color="#9467bd", width=2.5, dash="dashdot"),
+                    marker=dict(size=8, symbol="diamond"),
+                    name=f"ML Forecast ({model_type.replace('ml_', '')})",
                 )
             )
 
-    # Layout
+        # ── Trace 7: Confidence cone (shaded area) ──────────────────────
+        if "lower_bound" in forecast and "upper_bound" in forecast:
+            lower = forecast["lower_bound"]
+            upper = forecast["upper_bound"]
+
+            # Build widening cone from fit_at_last (zero width) to bounds at pred_time
+            cone_x = []
+            cone_y_upper = []
+            cone_y_lower = []
+            for i in range(n_pts):
+                frac = i / (n_pts - 1)
+                cone_x.append(interp_times[i])
+                cone_y_upper.append(interp_vals[i] + frac * (upper - fit_at_pred))
+                cone_y_lower.append(interp_vals[i] + frac * (lower - fit_at_pred))
+
+            # Upper bound line
+            fig.add_trace(
+                go.Scatter(
+                    x=cone_x,
+                    y=cone_y_upper,
+                    mode="lines",
+                    line=dict(width=0),
+                    showlegend=False,
+                    hoverinfo="skip",
+                )
+            )
+            # Lower bound line + fill between
+            fig.add_trace(
+                go.Scatter(
+                    x=cone_x,
+                    y=cone_y_lower,
+                    mode="lines",
+                    line=dict(width=0),
+                    fill="tonexty",
+                    fillcolor="rgba(214, 39, 40, 0.12)",
+                    name="95% Confidence",
+                )
+            )
+
+    # ── Trace 8: 8-bar threshold line ────────────────────────────────────
+    x_min = df["TimeStamp"].min()
+    x_max = (
+        pd.Timestamp(forecast["prediction_date"])
+        if forecast and "prediction_date" in forecast
+        else df["TimeStamp"].max()
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=[x_min, x_max],
+            y=[threshold_tmp, threshold_tmp],
+            mode="lines",
+            line=dict(color="rgba(220, 53, 69, 0.7)", width=2, dash="longdash"),
+            name="Operational Limit (8 bar)",
+        )
+    )
+
+    # ── Chemical cleaning vertical lines ─────────────────────────────────
+    if chemical_cleanings:
+        cleaning_times_dt = [pd.to_datetime(ts) for ts in chemical_cleanings]
+        y_range_max = max(valid_cycle_tmps) * 1.3 if valid_cycle_tmps else 6.0
+        y_range_min = min(valid_cycle_tmps) * 0.7 if valid_cycle_tmps else 0.0
+
+        for i, ct in enumerate(cleaning_times_dt):
+            fig.add_trace(
+                go.Scatter(
+                    x=[ct, ct],
+                    y=[y_range_min, y_range_max],
+                    mode="lines",
+                    line=dict(color="rgba(40, 167, 69, 0.6)", width=1.5, dash="dash"),
+                    name="Chemical Cleaning" if i == 0 else None,
+                    showlegend=(i == 0),
+                    hovertemplate=f"Chemical Cleaning<br>%{{x}}<extra></extra>",
+                )
+            )
+
+    # ── Layout ───────────────────────────────────────────────────────────
     time_range = df["TimeStamp"].max() - df["TimeStamp"].min()
-    layout = create_standard_layout("TMP vs Time (with Forecast)", height=700)
+    layout = create_standard_layout(
+        "TMP Forecast — Irreversible Fouling Trend", height=750
+    )
     layout.update(xaxis=create_time_axis(time_range, True))
 
-    # Calculate slope for annotation
-    if slope_info:
-        slope_per_hour = slope_info["slope"] * 3600
-        slope_per_day = slope_info["slope"] * 86400
-        r_squared = slope_info["r_squared"]
+    # ── Annotation info box ──────────────────────────────────────────────
+    annotations = []
 
-        # Add slope annotation with model info
-        model_type = forecast.get("model_type", "unknown") if forecast else "linear"
-        layout.update(
-            annotations=[
-                dict(
-                    x=0.98,
-                    y=0.15,
-                    xref="paper",
-                    yref="paper",
-                    text=f"<b>Model:</b> {model_type} (default)<br><b>Slope:</b> {slope_per_hour:.6f} bar/h ({slope_per_day:.4f} bar/day)<br><b>R²:</b> {r_squared:.4f}",
-                    showarrow=False,
-                    bgcolor="rgba(255, 255, 255, 0.8)",
-                    bordercolor="black",
-                    borderwidth=1,
-                    borderpad=5,
-                    font=dict(size=12),
-                    align="right",
-                    xanchor="right",
-                    yanchor="bottom",
+    if irrev_slope_info:
+        slope_per_hour = irrev_slope_info["slope"] * 3600
+        slope_per_day = irrev_slope_info["slope"] * 86400
+        r_sq = irrev_slope_info["r_squared"]
+
+        # Fouling classification
+        classification = "low"
+        if fouling_rates and "reversible_fouling_rate_bar_per_day" in fouling_rates:
+            rev_rate = fouling_rates["reversible_fouling_rate_bar_per_day"]
+            irrev_rate = fouling_rates.get("irreversible_fouling_rate_bar_per_day")
+        else:
+            rev_rate = None
+            irrev_rate = None
+
+        # Classification colors
+        class_colors = {
+            "low": "#28a745",
+            "medium": "#ffc107",
+            "high": "#fd7e14",
+            "critical": "#dc3545",
+        }
+
+        # Determine fouling classification from slope
+        abs_slope_h = abs(slope_per_hour)
+        if abs_slope_h < 0.001:
+            classification = "low"
+        elif abs_slope_h < 0.005:
+            classification = "medium"
+        elif abs_slope_h < 0.01:
+            classification = "high"
+        else:
+            classification = "critical"
+
+        cls_color = class_colors.get(classification, "#6c757d")
+
+        # Build annotation text
+        ann_lines = [
+            f'<b style="color:{cls_color}">⬤ Fouling: {classification.upper()}</b>',
+            f"<b>Irrev. slope:</b> {slope_per_day:.4f} bar/day (R²={r_sq:.3f})",
+        ]
+        if rev_rate is not None:
+            ann_lines.append(f"<b>Rev. slope:</b> {rev_rate:.4f} bar/day")
+
+        # Time to threshold
+        if irrev_slope_info["slope"] > 0:
+            current_fit = (
+                irrev_slope_info["slope"]
+                * (max(valid_cycle_times) - irrev_slope_info["t0"]).total_seconds()
+                + irrev_slope_info["intercept"]
+            )
+            days_to_8 = (threshold_tmp - current_fit) / (
+                irrev_slope_info["slope"] * 86400
+            )
+            if days_to_8 > 0:
+                ann_lines.append(f"<b>Time to 8 bar:</b> {days_to_8:.0f} days")
+                threshold_date = max(valid_cycle_times) + pd.Timedelta(days=days_to_8)
+                ann_lines.append(
+                    f"<b>Threshold date:</b> {threshold_date.strftime('%Y-%m-%d')}"
                 )
-            ]
+
+        model_type = forecast.get("model_type", "linear") if forecast else "linear"
+        ann_lines.append(f"<b>Model:</b> {model_type}")
+
+        annotations.append(
+            dict(
+                x=0.98,
+                y=0.98,
+                xref="paper",
+                yref="paper",
+                text="<br>".join(ann_lines),
+                showarrow=False,
+                bgcolor="rgba(255, 255, 255, 0.92)",
+                bordercolor="rgba(0, 0, 0, 0.3)",
+                borderwidth=1,
+                borderpad=8,
+                font=dict(size=11, family="Arial, sans-serif"),
+                align="left",
+                xanchor="right",
+                yanchor="top",
+            )
         )
 
+    layout.update(annotations=annotations)
     fig.update_layout(layout)
 
-    # Save with custom JavaScript for dynamic recalculation
+    # ── Save with custom JavaScript for dynamic recalculation ────────────
     html_str = fig.to_html(config=get_plot_config(), include_plotlyjs="cdn")
 
-    # Prepare raw data for JavaScript
-    df_tmp_js = df_tmp.copy()
-    timestamps_js = df_tmp_js["TimeStamp"].astype(str).tolist()
-    tmp_values_js = df_tmp_js["TMP"].tolist()
-    forecast_horizon = forecast.get("forecast_horizon_days", 7) if forecast else 7
-    model_type_js = forecast.get("model_type", "unknown") if forecast else "linear"
+    # Prepare cycle-start data for JavaScript dynamic recalculation
+    cs_timestamps_js = [str(t) for t in valid_cycle_times]
+    cs_tmps_js = valid_cycle_tmps
+    cleaning_timestamps_js = chemical_cleanings if chemical_cleanings else []
+    model_type_js = forecast.get("model_type", "linear") if forecast else "linear"
 
-    # Add custom JavaScript for dynamic calculations
     custom_js = f"""
 <script>
-    // Store raw data
-    const rawTimestamps = {timestamps_js};
-    const rawTMPValues = {tmp_values_js};
+    // Cycle-start data for dynamic regression
+    const csTimestamps = {cs_timestamps_js};
+    const csTMPs = {cs_tmps_js};
     const forecastHorizonDays = {forecast_horizon};
     const originalModelType = "{model_type_js}";
-    
-    // Convert timestamps to numeric (milliseconds)
-    const rawTimeNumeric = rawTimestamps.map(t => new Date(t).getTime());
-    
-    // Function to calculate linear regression
+    const thresholdTMP = {threshold_tmp};
+
+    // Convert to numeric (milliseconds)
+    const csTimeNumeric = csTimestamps.map(t => new Date(t).getTime());
+
+    // Linear regression function
     function linearRegression(x, y) {{
         const n = x.length;
         if (n < 2) return null;
-        
         const sumX = x.reduce((a, b) => a + b, 0);
         const sumY = y.reduce((a, b) => a + b, 0);
         const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
         const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
-        
-        const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        const denom = n * sumX2 - sumX * sumX;
+        if (Math.abs(denom) < 1e-15) return null;
+        const slope = (n * sumXY - sumX * sumY) / denom;
         const intercept = (sumY - slope * sumX) / n;
-        
-        // Calculate R²
         const yMean = sumY / n;
-        const yFit = x.map(xi => slope * xi + intercept);
         const ssTot = y.reduce((sum, yi) => sum + Math.pow(yi - yMean, 2), 0);
-        const ssRes = y.reduce((sum, yi, i) => sum + Math.pow(yi - yFit[i], 2), 0);
-        const r2 = 1 - (ssRes / ssTot);
-        
-        return {{slope, intercept, r2}};
+        const ssRes = y.reduce((sum, yi, i) => sum + Math.pow(yi - (slope * x[i] + intercept), 2), 0);
+        const r2 = ssTot > 0 ? 1 - (ssRes / ssTot) : 0;
+        // Residual std
+        const residuals = y.map((yi, i) => yi - (slope * x[i] + intercept));
+        const resStd = Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / Math.max(n - 2, 1));
+        return {{slope, intercept, r2, resStd}};
     }}
-    
-    // Function to update plot based on visible range
+
     function updateForecast(xRange) {{
         let startTime, endTime;
-        
         if (xRange && xRange['xaxis.range[0]'] && xRange['xaxis.range[1]']) {{
             startTime = new Date(xRange['xaxis.range[0]']).getTime();
             endTime = new Date(xRange['xaxis.range[1]']).getTime();
         }} else {{
-            // Use full range
-            startTime = Math.min(...rawTimeNumeric);
-            endTime = Math.max(...rawTimeNumeric);
+            startTime = Math.min(...csTimeNumeric);
+            endTime = Math.max(...csTimeNumeric);
         }}
-        
-        // Filter data to visible range
-        const visibleIndices = rawTimeNumeric.map((t, i) => (t >= startTime && t <= endTime) ? i : -1).filter(i => i >= 0);
-        
-        if (visibleIndices.length < 2) return;
-        
-        const visibleTimes = visibleIndices.map(i => rawTimeNumeric[i]);
-        const visibleTMP = visibleIndices.map(i => rawTMPValues[i]);
-        
-        // Calculate regression on visible data
-        const result = linearRegression(visibleTimes, visibleTMP);
+
+        // Filter cycle-start data to visible range
+        const vis = [];
+        for (let i = 0; i < csTimeNumeric.length; i++) {{
+            if (csTimeNumeric[i] >= startTime && csTimeNumeric[i] <= endTime) {{
+                vis.push(i);
+            }}
+        }}
+        if (vis.length < 2) return;
+
+        const visTimes = vis.map(i => csTimeNumeric[i]);
+        const visTMPs = vis.map(i => csTMPs[i]);
+
+        const result = linearRegression(visTimes, visTMPs);
         if (!result) return;
-        
-        const {{slope, intercept, r2}} = result;
-        
-        // Convert slope to bar/hour and bar/day
-        const slopePerHour = slope * 3600000; // milliseconds to hours
-        const slopePerDay = slope * 86400000; // milliseconds to days
-        
-        // Update linear fit trace
-        const fitX = [rawTimestamps[0], rawTimestamps[rawTimestamps.length - 1]];
-        const fitY = [
-            slope * rawTimeNumeric[0] + intercept,
-            slope * rawTimeNumeric[rawTimeNumeric.length - 1] + intercept
-        ];
-        
-        // Calculate forecast as continuation of fitting line
-        const lastTime = rawTimeNumeric[rawTimeNumeric.length - 1];
-        const fittedValueAtLast = slope * lastTime + intercept;
-        const futureTime = lastTime + (forecastHorizonDays * 86400000); // days to milliseconds
+
+        const {{slope, intercept, r2, resStd}} = result;
+        const slopePerDay = slope * 86400000;
+
+        // Compute fit line over full cycle-start range
+        const fitX = csTimestamps;
+        const fitY = csTimeNumeric.map(t => slope * t + intercept);
+
+        // Compute forecast (continuation)
+        const lastTime = csTimeNumeric[csTimeNumeric.length - 1];
+        const fittedAtLast = slope * lastTime + intercept;
+        const futureTime = lastTime + forecastHorizonDays * 86400000;
         const predictedTMP = slope * futureTime + intercept;
         const futureDate = new Date(futureTime);
-        
-        // Update traces
-        const updatedData = {{}};
-        
-        // Find and update Linear Fit trace
-        const plotDiv = document.getElementsByClassName('plotly')[0];
-        if (plotDiv && plotDiv.data) {{
-            const fitTraceIndex = plotDiv.data.findIndex(trace => trace.name === 'Linear Fit');
-            if (fitTraceIndex >= 0) {{
-                Plotly.restyle(plotDiv, {{
-                    'x': [fitX],
-                    'y': [fitY]
-                }}, [fitTraceIndex]);
-            }}
-            
-            // Find and update Forecast trace (continuation of fit line)
-            const forecastTraceIndex = plotDiv.data.findIndex(trace => trace.name === 'Forecast');
-            if (forecastTraceIndex >= 0) {{
-                Plotly.restyle(plotDiv, {{
-                    'x': [[rawTimestamps[rawTimestamps.length - 1], futureDate.toISOString()]],
-                    'y': [[fittedValueAtLast, predictedTMP]]
-                }}, [forecastTraceIndex]);
-            }}
-            
-            // Determine if using full range or filtered range
-            const isFullRange = visibleIndices.length === rawTimeNumeric.length;
-            const modelInfo = isFullRange ? 
-                `<b>Model:</b> ${{originalModelType}} (default)` : 
-                `<b>Model:</b> linear regression (dynamic - filtered range)`;
-            
-            // Update annotation with slope and model info
-            const annotation = {{
-                x: 0.98,
-                y: 0.15,
-                xref: 'paper',
-                yref: 'paper',
-                text: `${{modelInfo}}<br><b>Slope:</b> ${{slopePerHour.toFixed(6)}} bar/h (${{slopePerDay.toFixed(4)}} bar/day)<br><b>R²:</b> ${{r2.toFixed(4)}}`,
-                showarrow: false,
-                bgcolor: 'rgba(255, 255, 255, 0.8)',
-                bordercolor: 'black',
-                borderwidth: 1,
-                borderpad: 5,
-                font: {{size: 12}},
-                align: 'right',
-                xanchor: 'right',
-                yanchor: 'bottom'
-            }};
-            
-            Plotly.relayout(plotDiv, {{'annotations': [annotation]}});
+
+        // Build confidence cone (20 points)
+        const nPts = 20;
+        const margin = 1.96 * resStd;
+        const coneX_upper = [];
+        const coneY_upper = [];
+        const coneX_lower = [];
+        const coneY_lower = [];
+        for (let i = 0; i < nPts; i++) {{
+            const frac = i / (nPts - 1);
+            const t = lastTime + frac * (futureTime - lastTime);
+            const v = slope * t + intercept;
+            const d = new Date(t).toISOString();
+            coneX_upper.push(d);
+            coneY_upper.push(v + frac * margin);
+            coneX_lower.push(d);
+            coneY_lower.push(v - frac * margin);
         }}
+
+        // Time to threshold
+        let daysTo8 = null;
+        if (slope > 0) {{
+            daysTo8 = (thresholdTMP - fittedAtLast) / slopePerDay;
+        }}
+
+        const plotDiv = document.getElementsByClassName('plotly')[0];
+        if (!plotDiv || !plotDiv.data) return;
+
+        // Update Irreversible Fouling Trend trace
+        const trendIdx = plotDiv.data.findIndex(t => t.name === 'Irreversible Fouling Trend');
+        if (trendIdx >= 0) {{
+            Plotly.restyle(plotDiv, {{ 'x': [fitX], 'y': [fitY] }}, [trendIdx]);
+        }}
+
+        // Update Linear Forecast trace
+        const fcIdx = plotDiv.data.findIndex(t => t.name && t.name.startsWith('Linear Forecast'));
+        if (fcIdx >= 0) {{
+            const fcX = [];
+            const fcY = [];
+            for (let i = 0; i < nPts; i++) {{
+                fcX.push(coneX_upper[i]);
+                fcY.push(slope * (lastTime + (i / (nPts - 1)) * (futureTime - lastTime)) + intercept);
+            }}
+            Plotly.restyle(plotDiv, {{ 'x': [fcX], 'y': [fcY] }}, [fcIdx]);
+        }}
+
+        // Update confidence cone (upper bound trace, then lower bound + fill)
+        const upperIdx = plotDiv.data.findIndex(t => t.name === '95% Confidence');
+        if (upperIdx >= 0 && upperIdx > 0) {{
+            // Upper is the trace before '95% Confidence'
+            Plotly.restyle(plotDiv, {{ 'x': [coneX_upper], 'y': [coneY_upper] }}, [upperIdx - 1]);
+            Plotly.restyle(plotDiv, {{ 'x': [coneX_lower], 'y': [coneY_lower] }}, [upperIdx]);
+        }}
+
+        // Determine if using full range
+        const isFullRange = vis.length === csTimeNumeric.length;
+
+        // Fouling classification
+        const absSlopeH = Math.abs(slope * 3600000);
+        let classification = 'low';
+        let clsColor = '#28a745';
+        if (absSlopeH >= 0.01) {{ classification = 'critical'; clsColor = '#dc3545'; }}
+        else if (absSlopeH >= 0.005) {{ classification = 'high'; clsColor = '#fd7e14'; }}
+        else if (absSlopeH >= 0.001) {{ classification = 'medium'; clsColor = '#ffc107'; }}
+
+        // Build annotation
+        let annText = `<b style="color:${{clsColor}}">⬤ Fouling: ${{classification.toUpperCase()}}</b>`;
+        annText += `<br><b>Irrev. slope:</b> ${{slopePerDay.toFixed(4)}} bar/day (R²=${{r2.toFixed(3)}})`;
+        if (daysTo8 !== null && daysTo8 > 0) {{
+            annText += `<br><b>Time to 8 bar:</b> ${{Math.round(daysTo8)}} days`;
+        }}
+        const modelLabel = isFullRange ? originalModelType : 'dynamic (filtered range)';
+        annText += `<br><b>Model:</b> ${{modelLabel}}`;
+
+        Plotly.relayout(plotDiv, {{
+            'annotations[0].text': annText
+        }});
     }}
-    
-    // Listen for range changes
+
     document.addEventListener('DOMContentLoaded', function() {{
         const plotDiv = document.getElementsByClassName('plotly')[0];
         if (plotDiv) {{
             plotDiv.on('plotly_relayout', function(eventData) {{
                 updateForecast(eventData);
             }});
-            
-            // Initial calculation
             updateForecast(null);
         }}
     }});
 </script>
 """
 
-    # Insert custom JS before closing body tag
     html_str = html_str.replace("</body>", f"{custom_js}</body>")
 
     filepath = os.path.join(plots_dir, "TMP_forecast.html")
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(html_str)
 
-    logger.info("  ✓ Created: TMP forecast plot with dynamic slope calculation")
+    logger.info("  ✓ Created: TMP forecast plot (redesigned with irreversible trend)")
 
     return filepath
 
@@ -2793,6 +3000,28 @@ def run_dashboard_app(config_path: str = "config.yaml") -> list:
         alerts = []
         logger.warning("No alerts available")
 
+    # Load chemical cleanings
+    try:
+        with open(
+            os.path.join(config["paths"]["output_folder"], "chemical_cleanings.json"),
+            "r",
+        ) as f:
+            cc_data = json.load(f)
+            chemical_cleanings = cc_data.get("chemical_cleaning_timestamps", [])
+    except:
+        chemical_cleanings = []
+        logger.warning("No chemical cleaning data available")
+
+    # Load fouling rates
+    try:
+        with open(
+            os.path.join(config["paths"]["output_folder"], "fouling_rates.json"), "r"
+        ) as f:
+            fouling_rates = json.load(f)
+    except:
+        fouling_rates = None
+        logger.warning("No fouling rate data available")
+
     generated_files = []
 
     # Create Unified Dashboard (PRIMARY - All-in-one navigation app)
@@ -2830,7 +3059,13 @@ def run_dashboard_app(config_path: str = "config.yaml") -> list:
 
     # Create TMP plot with forecast
     tmp_file = create_tmp_plot_with_forecast(
-        df_full, plots_dir, config, forecasts.get("tmp"), cycles
+        df_full,
+        plots_dir,
+        config,
+        forecasts.get("tmp"),
+        cycles,
+        chemical_cleanings,
+        fouling_rates,
     )
     if tmp_file:
         generated_files.append(tmp_file)
