@@ -11,6 +11,9 @@ __pycache__/
 Thumbs.db
 .DS_Store
 
+# Old/legacy files not part of pipeline
+old/
+
 # Intermediate pipeline outputs (regenerated on each run)
 outputs/*.parquet
 outputs/*.log
