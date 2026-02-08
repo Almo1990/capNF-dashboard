@@ -115,46 +115,44 @@ echo ===============================================================
 echo.
 
 REM [Step 2/3] Deploy to GitHub Pages
+echo [Step 2/3] Deploying to GitHub Pages...
+echo.
+
 REM Auto-detect git: check PATH first, then MinGit in user home
 set "GIT_EXE="
 where git >nul 2>&1
 if !errorlevel! == 0 (
-    set "GIT_EXE=git"
-) else if exist "%USERPROFILE%\MinGit\cmd\git.exe" (
+    for /f "delims=" %%g in ('where git') do (
+        "%%g" --version >nul 2>&1
+        if !errorlevel! == 0 (
+            set "GIT_EXE=%%g"
+            goto :found_git
+        )
+    )
+)
+if exist "%USERPROFILE%\MinGit\cmd\git.exe" (
     set "GIT_EXE=%USERPROFILE%\MinGit\cmd\git.exe"
     set "PATH=%USERPROFILE%\MinGit\cmd;%PATH%"
+    goto :found_git
 )
 
-if "!GIT_EXE!"=="" (
-    echo [Step 2/3] Skipping GitHub deployment - git not found
-    echo    To enable auto-deployment, install Git or run:
-    echo    python -c "import urllib.request,zipfile,os; ..."
-    echo    See GITHUB_SETUP.txt for details
-    echo.
-    goto :open_dashboard
-)
-
-"!GIT_EXE!" status >nul 2>&1
-if !errorlevel! neq 0 (
-    echo [Step 2/3] Skipping GitHub deployment - git not initialized
-    echo    To enable auto-deployment, set up GitHub Pages - see GITHUB_SETUP.txt
-    echo.
-    goto :open_dashboard
-)
-
-echo [Step 2/3] Deploying to GitHub Pages...
+echo    [SKIP] Git not found - skipping deployment
+echo    Install Git or see GITHUB_SETUP.txt for MinGit setup
 echo.
+goto :open_dashboard
 
-REM Deploy to gh-pages branch using the Python auto-updater's deploy logic
-"%PYTHON_EXE%" -c "import subprocess,tempfile,shutil,os,sys; plots='combined_data_plots'; tmp=tempfile.mkdtemp(); r=subprocess.run(['git','clone','--branch','gh-pages','--single-branch','--depth','1','https://github.com/Almo1990/capnf-dashboard.git',tmp],capture_output=True,text=True); [os.remove(os.path.join(tmp,f)) for f in os.listdir(tmp) if f.endswith('.html')]; [shutil.copy2(os.path.join(plots,f),os.path.join(tmp,f)) for f in os.listdir(plots) if f.endswith('.html')]; subprocess.run(['git','add','-A'],cwd=tmp); subprocess.run(['git','commit','-m','Dashboard update'],cwd=tmp,capture_output=True); p=subprocess.run(['git','push','origin','gh-pages'],cwd=tmp,capture_output=True,text=True); print('OK' if p.returncode==0 else 'FAIL:'+p.stderr); shutil.rmtree(tmp,ignore_errors=True)"
+:found_git
+echo    Using git: !GIT_EXE!
+
+REM Deploy to gh-pages using the helper script
+"%PYTHON_EXE%" deploy_to_pages.py --main-too
 if !errorlevel! == 0 (
-    echo [OK] Deployed to GitHub Pages successfully!
-    echo Dashboard will be live at: https://Almo1990.github.io/capnf-dashboard/
-    echo    Wait about 1 minute for GitHub to process the update
+    echo.
+    echo [OK] Deployed successfully!
     echo.
 ) else (
-    echo [WARNING] Deployment failed - check authentication
-    echo    To enable auto-deployment, set up GitHub Pages - see GITHUB_SETUP.txt
+    echo.
+    echo [WARNING] Deployment failed - check authentication or GITHUB_SETUP.txt
     echo.
 )
 

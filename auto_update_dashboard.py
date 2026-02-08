@@ -95,119 +95,22 @@ class DataFileHandler(FileSystemEventHandler):
         print("☁️ Step 2/2: Deploying to GitHub Pages...")
         print("-" * 60)
 
-        plots_dir = os.path.join(self.base_path, "combined_data_plots")
-        if not os.path.exists(plots_dir):
-            print("⚠️ Warning: combined_data_plots/ folder not found")
+        # Use the deploy_to_pages.py helper script for reliable deployment
+        deploy_script = os.path.join(self.base_path, "deploy_to_pages.py")
+
+        if not os.path.exists(deploy_script):
+            print("⚠️ Warning: deploy_to_pages.py not found")
+            print("-" * 60 + "\n")
             return
 
-        # Auto-detect git: check PATH first, then MinGit in user home
-        git_exe = "git"
-        import shutil as _shutil
-        if _shutil.which("git") is None:
-            mingit = os.path.join(Path.home(), "MinGit", "cmd", "git.exe")
-            if os.path.exists(mingit):
-                git_exe = mingit
-                os.environ["PATH"] = str(Path(mingit).parent) + os.pathsep + os.environ.get("PATH", "")
-            else:
-                print("⚠️ Warning: Git not found (install Git or MinGit)")
-                print("-" * 60 + "\n")
-                return
-
-        # Check if git is configured
         result = subprocess.run(
-            [git_exe, "status"], cwd=self.base_path, capture_output=True, text=True
+            [sys.executable, deploy_script, "--main-too"],
+            cwd=self.base_path,
+            text=True,
         )
 
         if result.returncode != 0:
-            print("⚠️ Warning: Git repository not initialized")
-            return
-
-        # First, commit source changes to main branch
-        subprocess.run(
-            ["git", "add", "combined_data_plots/", "outputs/*.json"],
-            cwd=self.base_path,
-            capture_output=True,
-        )
-        commit_msg = f"Auto-update: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        subprocess.run(
-            ["git", "commit", "-m", commit_msg],
-            cwd=self.base_path,
-            capture_output=True,
-        )
-        subprocess.run(
-            ["git", "push", "origin", "main"],
-            cwd=self.base_path,
-            capture_output=True,
-        )
-
-        # Now deploy to gh-pages branch
-        # Use a temporary directory approach to avoid disrupting the working tree
-        import tempfile
-        import shutil
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            # Clone the repo into a temp directory (shallow, just gh-pages)
-            clone_result = subprocess.run(
-                [
-                    "git", "clone", "--branch", "gh-pages", "--single-branch",
-                    "--depth", "1", self.base_path, tmp_dir,
-                ],
-                capture_output=True, text=True,
-            )
-
-            if clone_result.returncode != 0:
-                print("⚠️ gh-pages branch not found, creating it...")
-                # Initialize a fresh repo in temp dir
-                subprocess.run(["git", "init"], cwd=tmp_dir, capture_output=True)
-                subprocess.run(
-                    ["git", "checkout", "--orphan", "gh-pages"],
-                    cwd=tmp_dir, capture_output=True,
-                )
-                # Set the remote
-                subprocess.run(
-                    ["git", "remote", "add", "origin",
-                     "https://github.com/Almo1990/capNF-dashboard.git"],
-                    cwd=tmp_dir, capture_output=True,
-                )
-
-            # Remove old HTML files from temp dir
-            for f in os.listdir(tmp_dir):
-                if f.endswith(".html"):
-                    os.remove(os.path.join(tmp_dir, f))
-
-            # Copy all HTML files from combined_data_plots/ to temp dir root
-            for f in os.listdir(plots_dir):
-                if f.endswith(".html"):
-                    shutil.copy2(
-                        os.path.join(plots_dir, f),
-                        os.path.join(tmp_dir, f),
-                    )
-
-            # Commit and push
-            subprocess.run(["git", "add", "-A"], cwd=tmp_dir, capture_output=True)
-            deploy_msg = f"Deploy dashboard: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            commit_result = subprocess.run(
-                ["git", "commit", "-m", deploy_msg],
-                cwd=tmp_dir, capture_output=True, text=True,
-            )
-
-            if "nothing to commit" in commit_result.stdout:
-                print("ℹ️ No dashboard changes to deploy")
-                print("-" * 60 + "\n")
-                return
-
-            push_result = subprocess.run(
-                ["git", "push", "origin", "gh-pages"],
-                cwd=tmp_dir, capture_output=True, text=True,
-            )
-
-            if push_result.returncode == 0:
-                print("✅ Deployed to GitHub Pages")
-                print("   Dashboard will be live in ~1 minute")
-                print("   🌐 https://Almo1990.github.io/capNF-dashboard/")
-            else:
-                print("⚠️ Push to gh-pages failed")
-                print(f"   Error: {push_result.stderr}")
+            print("⚠️ Deployment failed - check git/authentication")
 
         print("-" * 60 + "\n")
 
