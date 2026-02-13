@@ -3,14 +3,14 @@
   "model_type": "linear",
   "forecast_horizon_days": 7.0,
   "current_value": 3.84,
-  "predicted_value": 3.8297445154993732,
+  "predicted_value": 3.8104357583513067,
   "prediction_date": "2026-02-20 07:40:25.490000",
   "confidence_level": 0.95,
-  "lower_bound": 3.4245950795380904,
-  "upper_bound": 4.234893951460656,
-  "r_squared": 0.03206244139229608,
-  "message": "TMP forecasted to reach 3.83 bar in 7.0 days (within safe range)",
-  "time_to_threshold": 465.95661079519385,
+  "lower_bound": 3.38844900028144,
+  "upper_bound": 4.232422516421173,
+  "r_squared": 0.02576624468155686,
+  "message": "TMP forecasted to reach 3.81 bar in 7.0 days (within safe range)",
+  "time_to_threshold": 534.3910858420392,
   "threshold_value": 8.0,
-  "threshold_date": "2027-05-25 06:37:56.662704752"
+  "threshold_date": "2027-08-01 17:03:35.306752184"
 }

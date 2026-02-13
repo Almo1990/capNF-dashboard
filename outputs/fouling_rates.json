@@ -1,10 +1,10 @@
 {
-  "reversible_fouling_rate_bar_per_day": 0.008160334507972593,
-  "reversible_r_squared": 0.38942678020858323,
-  "irreversible_fouling_rate_bar_per_day": 0.00907329156990933,
-  "irreversible_r_squared": 0.22717929759210487,
-  "total_cycles": 323,
-  "valid_cycles": 322,
+  "reversible_fouling_rate_bar_per_day": 0.007125852471034528,
+  "reversible_r_squared": 0.35058309723882697,
+  "irreversible_fouling_rate_bar_per_day": 0.0032409423043199795,
+  "irreversible_r_squared": 0.07226959001340738,
+  "total_cycles": 379,
+  "valid_cycles": 378,
   "outliers_removed": 1,
-  "post_cleaning_cycles": 5
+  "post_cleaning_cycles": 7
 }
