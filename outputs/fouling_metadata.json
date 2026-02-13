@@ -1,9 +1,9 @@
 {
-  "global_tmp_slope_per_hour": -1.183841362603395e-05,
-  "global_tmp_slope_per_day": -0.00028412192702481474,
-  "tmp_slope_r_squared": 0.005987523878670631,
+  "global_tmp_slope_per_hour": 0.00026880507936908097,
+  "global_tmp_slope_per_day": 0.006451321904857943,
+  "tmp_slope_r_squared": 0.015052244617350885,
   "fouling_classification": "low",
-  "analysis_timestamp": "2026-02-13T21:47:35.992945",
-  "permeability_baseline": 8.439006360259983,
-  "permeability_decline_from_baseline": 5.555231744671181
+  "analysis_timestamp": "2026-02-13T22:11:51.407691",
+  "permeability_baseline": 8.436117595171774,
+  "permeability_decline_from_baseline": 5.522891186799385
 }
