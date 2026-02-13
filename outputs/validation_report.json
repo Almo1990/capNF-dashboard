@@ -1,6 +1,6 @@
 {
-  "total_rows_input": 278230,
-  "total_rows_output": 261541,
+  "total_rows_input": 278389,
+  "total_rows_output": 261700,
   "rows_removed": 16689,
   "outliers_per_parameter": {
     "TMP": 910,
@@ -17,17 +17,17 @@
   "missing_values": {
     "TimeStamp": 0.0,
     "TMP": 0.0,
-    "Permeability": 5.080688638895878,
-    "Permeability TC": 5.080688638895878,
+    "Permeability": 5.077786837842012,
+    "Permeability TC": 5.077786837842012,
     "dP module": 0.0,
     "dP module TC": 0.0,
     "dP module TC abs": 0.0,
     "Flux": 0.0,
     "Vcrossflow": 0.0,
-    "Recovery": 0.0007188297451748553,
+    "Recovery": 0.0007184191904134143,
     "Active program number": 0.0,
-    "Mem. retention": 0.10602738741329117,
-    "Sys. retention": 0.1063868022858786,
+    "Mem. retention": 0.10596683058597862,
+    "Sys. retention": 0.10632604018118533,
     "00-FIT-01": 0.0,
     "01-FIT-01": 0.0,
     "01-FIT-02": 0.0,
@@ -89,8 +89,8 @@
     "Total permeate BW": 0.0,
     "Total feed": 0.0,
     "PV used perm dosing": 0.0,
-    "Net recovery": 0.1182474930812637,
-    "Specific_power": 0.0032347338532868492,
+    "Net recovery": 0.11817995682300667,
+    "Specific_power": 0.003232886356860364,
     "Filtration timer": 0.0,
     "Chemical timer": 0.0
   },
@@ -107,7 +107,7 @@
     }
   ],
   "time_range_start": "2026-01-28 02:57:24.090000",
-  "time_range_end": "2026-02-13 07:40:25.490000",
+  "time_range_end": "2026-02-13 07:53:41.390000",
   "warnings": [
     "Detected 2 timestamp gaps",
     "Columns with >5% missing: ['Permeability', 'Permeability TC']"

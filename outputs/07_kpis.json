@@ -1,7 +1,7 @@
 [
   {
     "name": "Average Recovery Rate",
-    "value": 85.02313156813247,
+    "value": 85.02314456257287,
     "unit": "%",
     "target": 85,
     "status": "good",
@@ -28,7 +28,7 @@
   },
   {
     "name": "Filtration Cycles per Week",
-    "value": 169.1233326948454,
+    "value": 169.02407604537854,
     "unit": "cycles/week",
     "target": null,
     "status": null,
@@ -46,7 +46,7 @@
   },
   {
     "name": "Current TMP",
-    "value": 3.84,
+    "value": 3.85,
     "unit": "bar",
     "target": 6,
     "status": "good",
