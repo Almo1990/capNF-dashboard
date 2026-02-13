@@ -1042,8 +1042,8 @@ def create_permeability_forecast_plot(
         last_sec = (last_time - t0).total_seconds()
         pred_sec = (pred_time - t0).total_seconds()
 
-        # Use the last cycle-start permeability as the starting point
-        fit_at_last = valid_cycle_perms[-1]
+        # Use the last baseline permeability as the starting point
+        fit_at_last = valid_baseline_perms[-1]
 
         # Use the predicted_value from the forecast dictionary
         predicted_perm = forecast.get("predicted_value")
@@ -1135,8 +1135,8 @@ def create_permeability_forecast_plot(
     # ── Chemical cleaning vertical lines ────────────────────────────────
     if chemical_cleanings:
         cleaning_times_dt = [pd.to_datetime(ts) for ts in chemical_cleanings]
-        y_range_max = max(valid_cycle_perms) * 1.3 if valid_cycle_perms else 10.0
-        y_range_min = min(valid_cycle_perms) * 0.7 if valid_cycle_perms else 0.0
+        y_range_max = max(valid_baseline_perms) * 1.3 if valid_baseline_perms else 10.0
+        y_range_min = min(valid_baseline_perms) * 0.7 if valid_baseline_perms else 0.0
 
         for i, ct in enumerate(cleaning_times_dt):
             fig.add_trace(
@@ -1200,14 +1200,14 @@ def create_permeability_forecast_plot(
             ann_lines.append(f"<b>Decline:</b> {decline_rate_pct_per_day:.2f}% per day")
 
         # Time to critical threshold
-        if slope_info["slope"] < 0 and valid_cycle_perms:
-            current_fit = valid_cycle_perms[-1]
+        if slope_info["slope"] < 0 and valid_baseline_perms:
+            current_fit = valid_baseline_perms[-1]
             days_to_threshold = (threshold_perm - current_fit) / slope_per_day
             if days_to_threshold > 0:
                 ann_lines.append(
                     f"<b>Time to critical:</b> {days_to_threshold:.0f} days"
                 )
-                threshold_date = max(valid_cycle_times) + pd.Timedelta(
+                threshold_date = max(valid_baseline_times) + pd.Timedelta(
                     days=days_to_threshold
                 )
                 ann_lines.append(
