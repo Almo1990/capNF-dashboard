@@ -234,10 +234,8 @@ def run_validation(config_path: str = "config.yaml") -> tuple:
         json.dump(report.to_dict(), f, indent=2, default=str)
     logger.info(f"✓ Saved validation report: {report_path}")
 
-    # Save filtered Excel (legacy compatibility)
-    excel_path = "combined_data_filtered.xlsx"
-    df_validated.to_excel(excel_path, index=False, sheet_name="Data")
-    logger.info(f"✓ Saved Excel file: {excel_path}")
+    # Excel export disabled - use outputs/02_validated.parquet instead
+    logger.info("  Data available in: outputs/02_validated.parquet")
 
     logger.info("=" * 60)
     logger.info("✓ VALIDATION COMPLETE")

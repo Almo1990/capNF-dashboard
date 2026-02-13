@@ -37,7 +37,7 @@
   },
   {
     "name": "Chemical Cleaning Frequency",
-    "value": 4,
+    "value": 2,
     "unit": "cleanings/week",
     "target": null,
     "status": null,
