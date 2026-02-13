@@ -1,7 +1,7 @@
 [
   {
     "name": "Average Recovery Rate",
-    "value": 84.11560885794425,
+    "value": 84.4764572661047,
     "unit": "%",
     "target": 85,
     "status": "warning",
@@ -19,7 +19,7 @@
   },
   {
     "name": "Average Cycle Duration",
-    "value": 1.25,
+    "value": 1.41,
     "unit": "hours",
     "target": 1.0,
     "status": "good",
@@ -28,7 +28,7 @@
   },
   {
     "name": "Filtration Cycles per Week",
-    "value": 17.227106728654555,
+    "value": 35.424530641471556,
     "unit": "cycles/week",
     "target": null,
     "status": null,
@@ -37,7 +37,7 @@
   },
   {
     "name": "Chemical Cleaning Frequency",
-    "value": 1,
+    "value": 3,
     "unit": "cleanings/week",
     "target": null,
     "status": null,
@@ -55,7 +55,7 @@
   },
   {
     "name": "Reversible Fouling Rate",
-    "value": 0.0006,
+    "value": 0.0004,
     "unit": "bar/day",
     "target": null,
     "status": null,
@@ -64,7 +64,7 @@
   },
   {
     "name": "Irreversible Fouling Rate",
-    "value": -0.0004,
+    "value": -0.0007,
     "unit": "bar/day",
     "target": null,
     "status": null,
