@@ -877,6 +877,380 @@ def create_tmp_plot_with_forecast(
     return filepath
 
 
+def create_permeability_forecast_plot(
+    df: pd.DataFrame,
+    plots_dir: str,
+    config: dict,
+    forecast: dict = None,
+    cycles: list = None,
+    chemical_cleanings: list = None,
+) -> str:
+    """
+    Create Permeability TC forecast plot with trend analysis, forecast,
+    chemical cleaning markers, confidence cone, and critical threshold.
+
+    Args:
+        df: Full DataFrame with Permeability TC data
+        plots_dir: Output directory
+        config: Full configuration dictionary
+        forecast: Forecast dictionary (linear or ML)
+        cycles: Cycle information (list of dicts with permeability_start, start_time, etc.)
+        chemical_cleanings: List of chemical cleaning timestamp strings
+
+    Returns:
+        Path to generated file
+    """
+    logger.info("Creating Permeability TC forecast plot...")
+
+    fig = go.Figure()
+
+    # Use visualization data for background Permeability traces
+    df_viz_path = config["paths"]["processed_viz_data"]
+    df_viz = load_parquet(df_viz_path)
+    colors = config["visualization"]["colors"]
+
+    # ── Trace 1: Raw Permeability TC (background context) ───────────────
+    if "Permeability TC" in df_viz.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=df_viz["TimeStamp"],
+                y=df_viz["Permeability TC"],
+                mode="lines",
+                line=dict(color=colors[1], width=1),
+                name="Permeability TC (Raw)",
+                opacity=0.25,
+            )
+        )
+
+    # ── Trace 2: Permeability TC SMA (background context) ───────────────
+    if "Permeability TC_SMA" in df_viz.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=df_viz["TimeStamp"],
+                y=df_viz["Permeability TC_SMA"],
+                mode="lines",
+                line=dict(color=colors[1], width=1.5),
+                name="Permeability TC (SMA)",
+                opacity=0.5,
+            )
+        )
+
+    # ── Extract daily baseline Permeability TC values (10th percentile) ──────────────────────
+    baseline_times = []
+    baseline_perms = []
+
+    # Use daily 10th percentile as stable baseline (filters out transient spikes)
+    if "Permeability TC" in df_viz.columns:
+        df_temp = df_viz[["TimeStamp", "Permeability TC"]].copy()
+        df_temp = df_temp.dropna(subset=["Permeability TC"])
+        df_temp["Date"] = df_temp["TimeStamp"].dt.floor("D")
+
+        # Calculate 10th percentile per day (represents baseline/minimum operational permeability)
+        daily_baseline = (
+            df_temp.groupby("Date")["Permeability TC"]
+            .agg(lambda x: np.percentile(x, 10) if len(x) >= 10 else x.min())
+            .reset_index()
+        )
+
+        baseline_times = daily_baseline["Date"].tolist()
+        baseline_perms = daily_baseline["Permeability TC"].tolist()
+
+    # IQR outlier filtering on daily baseline Permeability values
+    valid_baseline_times = []
+    valid_baseline_perms = []
+    if len(baseline_perms) >= 4:
+        arr = np.array(baseline_perms)
+        q1, q3 = np.percentile(arr, 25), np.percentile(arr, 75)
+        iqr = q3 - q1
+        lb, ub = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+        for t, v in zip(baseline_times, baseline_perms):
+            if lb <= v <= ub:
+                valid_baseline_times.append(t)
+                valid_baseline_perms.append(v)
+    else:
+        valid_baseline_times = baseline_times
+        valid_baseline_perms = baseline_perms
+
+    # ── Trace 3: Daily Baseline Permeability scatter ───────────────────────
+    if valid_baseline_times:
+        fig.add_trace(
+            go.Scatter(
+                x=valid_baseline_times,
+                y=valid_baseline_perms,
+                mode="markers",
+                marker=dict(color="rgba(0, 123, 255, 0.6)", size=4, symbol="circle"),
+                name="Daily Baseline Permeability (P10)",
+            )
+        )
+
+    # ── Trace 4: Permeability decline trend (linear fit) ────────────────
+    slope_info = {}
+    stable_start_value = None
+    if len(valid_baseline_times) > 2:
+        t0 = min(valid_baseline_times)
+        baseline_seconds = np.array(
+            [(t - t0).total_seconds() for t in valid_baseline_times]
+        )
+        baseline_values = np.array(valid_baseline_perms)
+
+        # Store the stable start value (average of first few points)
+        if len(baseline_values) >= 5:
+            stable_start_value = np.mean(baseline_values[:5])
+        else:
+            stable_start_value = baseline_values[0]
+
+        coeffs = np.polyfit(baseline_seconds, baseline_values, 1)
+        fit_vals = coeffs[0] * baseline_seconds + coeffs[1]
+
+        # R²
+        y_mean = baseline_values.mean()
+        ss_tot = np.sum((baseline_values - y_mean) ** 2)
+        ss_res = np.sum((baseline_values - fit_vals) ** 2)
+        r_sq = 1 - (ss_res / ss_tot) if ss_tot != 0 else 0
+
+        slope_info = {
+            "slope": coeffs[0],
+            "intercept": coeffs[1],
+            "r_squared": r_sq,
+            "t0": t0,
+            "stable_start": stable_start_value,
+        }
+
+        fig.add_trace(
+            go.Scatter(
+                x=valid_baseline_times,
+                y=fit_vals.tolist(),
+                mode="lines",
+                line=dict(color="black", width=2.5, dash="dash"),
+                name="Permeability Decline Trend",
+            )
+        )
+
+    # ── Trace 5: Forecast line ──────────────────────────────────────────
+    forecast_horizon = forecast.get("forecast_horizon_days", 7) if forecast else 7
+
+    # Calculate critical threshold (40% reduction from stable start)
+    threshold_perm = (
+        stable_start_value * 0.6 if stable_start_value else 6.0
+    )  # 40% reduction means 60% remaining
+
+    if slope_info and forecast:
+        last_time = max(valid_baseline_times)
+        pred_time = pd.Timestamp(forecast["prediction_date"])
+        t0 = slope_info["t0"]
+
+        last_sec = (last_time - t0).total_seconds()
+        pred_sec = (pred_time - t0).total_seconds()
+
+        # Use the last cycle-start permeability as the starting point
+        fit_at_last = valid_cycle_perms[-1]
+
+        # Use the predicted_value from the forecast dictionary
+        predicted_perm = forecast.get("predicted_value")
+
+        if predicted_perm is not None:
+            # Generate intermediate points for smooth line
+            n_pts = 20
+            interp_times = [
+                last_time
+                + pd.Timedelta(seconds=float((i / (n_pts - 1)) * (pred_sec - last_sec)))
+                for i in range(n_pts)
+            ]
+            interp_vals = [
+                fit_at_last + (i / (n_pts - 1)) * (predicted_perm - fit_at_last)
+                for i in range(n_pts)
+            ]
+
+            model_type = forecast.get("model_type", "linear")
+            model_label = model_type.replace("ml_", "").replace("_", " ").title()
+
+            fig.add_trace(
+                go.Scatter(
+                    x=interp_times,
+                    y=interp_vals,
+                    mode="lines+markers",
+                    line=dict(color="#d62728", width=2.5, dash="dot"),
+                    marker=dict(size=[0] * (n_pts - 1) + [8], symbol="diamond"),
+                    name=f"{model_label} Forecast ({forecast_horizon}d)",
+                )
+            )
+
+        # ── Trace 6: Confidence cone ────────────────────────────────────
+        if (
+            "lower_bound" in forecast
+            and "upper_bound" in forecast
+            and predicted_perm is not None
+        ):
+            lower = forecast["lower_bound"]
+            upper = forecast["upper_bound"]
+
+            cone_x = []
+            cone_y_upper = []
+            cone_y_lower = []
+            for i in range(n_pts):
+                frac = i / (n_pts - 1)
+                cone_x.append(interp_times[i])
+                cone_y_upper.append(fit_at_last + frac * (upper - fit_at_last))
+                cone_y_lower.append(fit_at_last + frac * (lower - fit_at_last))
+
+            fig.add_trace(
+                go.Scatter(
+                    x=cone_x,
+                    y=cone_y_upper,
+                    mode="lines",
+                    line=dict(width=0),
+                    showlegend=False,
+                    hoverinfo="skip",
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=cone_x,
+                    y=cone_y_lower,
+                    mode="lines",
+                    line=dict(width=0),
+                    fill="tonexty",
+                    fillcolor="rgba(214, 39, 40, 0.12)",
+                    name="95% Confidence",
+                )
+            )
+
+    # ── Trace 7: Critical threshold line (40% reduction) ────────────────
+    x_min = df["TimeStamp"].min()
+    x_max = (
+        pd.Timestamp(forecast["prediction_date"])
+        if forecast and "prediction_date" in forecast
+        else df["TimeStamp"].max()
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=[x_min, x_max],
+            y=[threshold_perm, threshold_perm],
+            mode="lines",
+            line=dict(color="rgba(220, 53, 69, 0.7)", width=2, dash="longdash"),
+            name=f"Critical Threshold ({threshold_perm:.1f} LMH/bar, -40%)",
+        )
+    )
+
+    # ── Chemical cleaning vertical lines ────────────────────────────────
+    if chemical_cleanings:
+        cleaning_times_dt = [pd.to_datetime(ts) for ts in chemical_cleanings]
+        y_range_max = max(valid_cycle_perms) * 1.3 if valid_cycle_perms else 10.0
+        y_range_min = min(valid_cycle_perms) * 0.7 if valid_cycle_perms else 0.0
+
+        for i, ct in enumerate(cleaning_times_dt):
+            fig.add_trace(
+                go.Scatter(
+                    x=[ct, ct],
+                    y=[y_range_min, y_range_max],
+                    mode="lines",
+                    line=dict(color="rgba(40, 167, 69, 0.6)", width=1.5, dash="dash"),
+                    name="Chemical Cleaning" if i == 0 else None,
+                    showlegend=(i == 0),
+                    hovertemplate=f"Chemical Cleaning<br>%{{x}}<extra></extra>",
+                )
+            )
+
+    # ── Layout ───────────────────────────────────────────────────────────
+    time_range = df["TimeStamp"].max() - df["TimeStamp"].min()
+    layout = create_standard_layout(
+        "Permeability TC Forecast — Membrane Performance Trend", height=750
+    )
+    layout.update(xaxis=create_time_axis(time_range, True))
+
+    # ── Annotation info box ──────────────────────────────────────────────
+    annotations = []
+
+    if slope_info:
+        slope_per_day = slope_info["slope"] * 86400
+        r_sq = slope_info["r_squared"]
+
+        # Decline classification
+        classification = "low"
+        class_colors = {
+            "low": "#28a745",
+            "medium": "#ffc107",
+            "high": "#fd7e14",
+            "critical": "#dc3545",
+        }
+
+        # Classify based on decline rate (in % per day relative to start value)
+        if stable_start_value and stable_start_value > 0:
+            decline_rate_pct_per_day = abs(slope_per_day / stable_start_value * 100)
+            if decline_rate_pct_per_day < 0.1:
+                classification = "low"
+            elif decline_rate_pct_per_day < 0.5:
+                classification = "medium"
+            elif decline_rate_pct_per_day < 1.0:
+                classification = "high"
+            else:
+                classification = "critical"
+        else:
+            decline_rate_pct_per_day = None
+
+        cls_color = class_colors.get(classification, "#6c757d")
+
+        # Build annotation text
+        ann_lines = [
+            f'<b style="color:{cls_color}">⬤ Decline Rate: {classification.upper()}</b>',
+            f"<b>Slope:</b> {slope_per_day:.4f} LMH/bar/day (R²={r_sq:.3f})",
+        ]
+
+        if decline_rate_pct_per_day is not None:
+            ann_lines.append(f"<b>Decline:</b> {decline_rate_pct_per_day:.2f}% per day")
+
+        # Time to critical threshold
+        if slope_info["slope"] < 0 and valid_cycle_perms:
+            current_fit = valid_cycle_perms[-1]
+            days_to_threshold = (threshold_perm - current_fit) / slope_per_day
+            if days_to_threshold > 0:
+                ann_lines.append(
+                    f"<b>Time to critical:</b> {days_to_threshold:.0f} days"
+                )
+                threshold_date = max(valid_cycle_times) + pd.Timedelta(
+                    days=days_to_threshold
+                )
+                ann_lines.append(
+                    f"<b>Threshold date:</b> {threshold_date.strftime('%Y-%m-%d')}"
+                )
+
+        model_type = forecast.get("model_type", "linear") if forecast else "linear"
+        ann_lines.append(f"<b>Model:</b> {model_type}")
+
+        annotations.append(
+            dict(
+                x=0.98,
+                y=0.98,
+                xref="paper",
+                yref="paper",
+                text="<br>".join(ann_lines),
+                showarrow=False,
+                bgcolor="rgba(255, 255, 255, 0.92)",
+                bordercolor="rgba(0, 0, 0, 0.3)",
+                borderwidth=1,
+                borderpad=8,
+                font=dict(size=11, family="Arial, sans-serif"),
+                align="left",
+                xanchor="right",
+                yanchor="top",
+            )
+        )
+
+    layout.update(annotations=annotations)
+    fig.update_layout(layout)
+
+    # Save HTML
+    html_str = fig.to_html(config=get_plot_config(), include_plotlyjs="cdn")
+
+    filepath = os.path.join(plots_dir, "Permeability_TC_forecast.html")
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(html_str)
+
+    logger.info("  ✓ Created: Permeability TC forecast plot")
+
+    return filepath
+
+
 def create_kpi_dashboard(
     kpis: list, alerts: list, forecasts: dict, plots_dir: str, config: dict
 ) -> str:
@@ -2032,6 +2406,10 @@ def create_unified_dashboard(
                 <span class="nav-icon">🔮</span>
                 <span>TMP Forecast</span>
             </li>
+            <li class="nav-item" onclick="showSection('permeability-forecast')">
+                <span class="nav-icon">💧</span>
+                <span>Permeability Forecast</span>
+            </li>
 """
 
     if cycles:
@@ -2274,6 +2652,13 @@ def create_unified_dashboard(
             <div class="plot-container">
                 <h3 class="plot-title">TMP Forecast — Irreversible Fouling Trend</h3>
                 <div id="plot-tmp-forecast"></div>
+            </div>
+        </div>
+        <!-- Permeability TC Forecast Section -->
+        <div id="permeability-forecast" class="content-section">
+            <div class="plot-container">
+                <h3 class="plot-title">Permeability TC Forecast — Membrane Performance Trend</h3>
+                <div id="plot-permeability-forecast"></div>
             </div>
         </div>
 """
@@ -2905,6 +3290,345 @@ def create_unified_dashboard(
             }}
 """
 
+    # Add Permeability TC forecast plot
+    perm_forecast = forecasts.get("permeability") if forecasts else {}
+    perm_forecast_horizon = perm_forecast.get("forecast_horizon_days", 7)
+    perm_predicted_value = perm_forecast.get("predicted_value")
+    perm_prediction_date = perm_forecast.get("prediction_date")
+    perm_model_type = perm_forecast.get("model_type", "linear")
+    perm_lower_bound = perm_forecast.get("lower_bound")
+    perm_upper_bound = perm_forecast.get("upper_bound")
+
+    # Extract daily baseline permeability data (10th percentile)
+    baseline_perm_times = []
+    baseline_perm_values = []
+    if "Permeability TC" in df_viz.columns:
+        df_temp = df_viz[["TimeStamp", "Permeability TC"]].copy()
+        df_temp = df_temp.dropna(subset=["Permeability TC"])
+        df_temp["Date"] = df_temp["TimeStamp"].dt.floor("D")
+
+        # Calculate 10th percentile per day (represents baseline/minimum operational permeability)
+        daily_baseline = (
+            df_temp.groupby("Date")["Permeability TC"]
+            .agg(lambda x: np.percentile(x, 10) if len(x) >= 10 else x.min())
+            .reset_index()
+        )
+
+        baseline_perm_times = (
+            daily_baseline["Date"].dt.strftime("%Y-%m-%d %H:%M:%S").tolist()
+        )
+        baseline_perm_values = daily_baseline["Permeability TC"].tolist()
+
+    # IQR filtering for permeability baseline
+    valid_perm_times = []
+    valid_perm_values = []
+    if len(baseline_perm_values) >= 4:
+        arr = np.array(baseline_perm_values)
+        q1, q3 = np.percentile(arr, 25), np.percentile(arr, 75)
+        iqr = q3 - q1
+        lb, ub = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+        for t, v in zip(baseline_perm_times, baseline_perm_values):
+            if lb <= v <= ub:
+                valid_perm_times.append(t)
+                valid_perm_values.append(v)
+    else:
+        valid_perm_times = baseline_perm_times
+        valid_perm_values = baseline_perm_values
+
+    # Calculate permeability decline trend
+    perm_slope = 0
+    perm_intercept = 0
+    perm_r_squared = 0
+    stable_start_value = 0
+    if len(valid_perm_times) > 2:
+        t0_dt = pd.to_datetime(min(valid_perm_times))
+        cs_seconds = np.array(
+            [(pd.to_datetime(t) - t0_dt).total_seconds() for t in valid_perm_times]
+        )
+        cs_values = np.array(valid_perm_values)
+
+        # Calculate stable start value (average of first few points)
+        if len(cs_values) >= 5:
+            stable_start_value = float(np.mean(cs_values[:5]))
+        else:
+            stable_start_value = float(cs_values[0])
+
+        coeffs = np.polyfit(cs_seconds, cs_values, 1)
+        fit_vals = coeffs[0] * cs_seconds + coeffs[1]
+        y_mean = cs_values.mean()
+        ss_tot = np.sum((cs_values - y_mean) ** 2)
+        ss_res = np.sum((cs_values - fit_vals) ** 2)
+        perm_r_squared = float(1 - (ss_res / ss_tot) if ss_tot != 0 else 0)
+        perm_slope = float(coeffs[0])
+        perm_intercept = float(coeffs[1])
+
+    # Get permeability data arrays
+    perm_timestamps = df_viz["TimeStamp"].dt.strftime("%Y-%m-%d %H:%M:%S").tolist()
+    perm_raw_values = (
+        df_viz["Permeability TC"].tolist()
+        if "Permeability TC" in df_viz.columns
+        else []
+    )
+    perm_sma_values = (
+        df_viz["Permeability TC_SMA"].tolist()
+        if "Permeability TC_SMA" in df_viz.columns
+        else []
+    )
+
+    html += f"""            if (sectionId === 'permeability-forecast') {{
+                // Permeability TC raw data arrays
+                const timestamps = {perm_timestamps};
+                const perm_values = {perm_raw_values};
+                const perm_sma_values = {perm_sma_values};
+                
+                // Embedded Permeability forecast data
+                const csTimestamps = {valid_perm_times};
+                const csPerms = {valid_perm_values};
+                const permSlope = {perm_slope};
+                const permIntercept = {perm_intercept};
+                const rSquared = {perm_r_squared};
+                const stableStartValue = {stable_start_value};
+                const forecastHorizonDays = {perm_forecast_horizon};
+                const predictedValue = {perm_predicted_value if perm_predicted_value else "null"};
+                const predictionDate = "{perm_prediction_date if perm_prediction_date else ""}";
+                const modelType = "{perm_model_type}";
+                const lowerBound = {perm_lower_bound if perm_lower_bound else "null"};
+                const upperBound = {perm_upper_bound if perm_upper_bound else "null"};
+                const thresholdPerm = stableStartValue * 0.6;  // 40% reduction = 60% remaining
+                const chemicalCleanings = {json.dumps(chemical_cleanings if chemical_cleanings else [])};
+
+                // Build plot traces
+                const traces = [];
+
+                // Trace 1: Raw Permeability (background)
+                if (perm_values.length > 0) {{
+                    traces.push({{
+                        x: timestamps,
+                        y: perm_values,
+                        mode: 'lines',
+                        line: {{color: '{config["colors"][1] if len(config["colors"]) > 1 else "#1f77b4"}', width: 1}},
+                        name: 'Permeability TC (Raw)',
+                        opacity: 0.25
+                    }});
+                }}
+
+                // Trace 2: Permeability SMA
+                if (perm_sma_values.length > 0) {{
+                    traces.push({{
+                        x: timestamps,
+                        y: perm_sma_values,
+                        mode: 'lines',
+                        line: {{color: '{config["colors"][1] if len(config["colors"]) > 1 else "#1f77b4"}', width: 1.5}},
+                        name: 'Permeability TC (SMA)',
+                        opacity: 0.5
+                    }});
+                }}
+
+                // Trace 3: Daily Baseline Permeability scatter
+                if (csTimestamps.length > 0) {{
+                    traces.push({{
+                        x: csTimestamps,
+                        y: csPerms,
+                        mode: 'markers',
+                        marker: {{color: 'rgba(0, 123, 255, 0.6)', size: 4}},
+                        name: 'Daily Baseline Permeability (P10)'
+                    }});
+
+                    // Trace 4: Permeability decline trend
+                    const t0 = new Date(csTimestamps[0]).getTime();
+                    const fitY = csTimestamps.map(t => {{
+                        const sec = (new Date(t).getTime() - t0) / 1000;
+                        return permSlope * sec + permIntercept;
+                    }});
+                    traces.push({{
+                        x: csTimestamps,
+                        y: fitY,
+                        mode: 'lines',
+                        line: {{color: 'black', width: 2.5, dash: 'dash'}},
+                        name: 'Permeability Decline Trend'
+                    }});
+
+                    // Trace 5: Forecast line
+                    if (predictionDate && predictedValue !== null) {{
+                        const lastTime = new Date(csTimestamps[csTimestamps.length - 1]).getTime();
+                        const predTime = new Date(predictionDate).getTime();
+                        const lastSec = (lastTime - t0) / 1000;
+                        const predSec = (predTime - t0) / 1000;
+                        
+                        const fitAtLast = csPerms[csPerms.length - 1];
+
+                        const nPts = 20;
+                        const fcX = [];
+                        const fcY = [];
+                        for (let i = 0; i < nPts; i++) {{
+                            const frac = i / (nPts - 1);
+                            const sec = lastSec + frac * (predSec - lastSec);
+                            const t = new Date(t0 + sec * 1000);
+                            fcX.push(t.toISOString());
+                            fcY.push(fitAtLast + frac * (predictedValue - fitAtLast));
+                        }}
+                        
+                        const markerSizes = Array(nPts).fill(0);
+                        markerSizes[nPts - 1] = 8;
+                        
+                        traces.push({{
+                            x: fcX,
+                            y: fcY,
+                            mode: 'lines+markers',
+                            line: {{color: '#d62728', width: 2.5, dash: 'dot'}},
+                            marker: {{size: markerSizes, symbol: 'diamond'}},
+                            name: `${{modelType.replace("ml_", "").replace("_", " ").charAt(0).toUpperCase() + modelType.replace("ml_", "").replace("_", " ").slice(1)}} Forecast (${{forecastHorizonDays}}d)`
+                        }});
+
+                        // Trace 6: Confidence cone
+                        if (lowerBound !== null && upperBound !== null) {{
+                            const coneXUpper = [];
+                            const coneYUpper = [];
+                            const coneXLower = [];
+                            const coneYLower = [];
+                            for (let i = 0; i < nPts; i++) {{
+                                const frac = i / (nPts - 1);
+                                const t = fcX[i];
+                                coneXUpper.push(t);
+                                coneYUpper.push(fitAtLast + frac * (upperBound - fitAtLast));
+                                coneXLower.push(t);
+                                coneYLower.push(fitAtLast + frac * (lowerBound - fitAtLast));
+                            }}
+                            traces.push({{
+                                x: coneXUpper,
+                                y: coneYUpper,
+                                mode: 'lines',
+                                line: {{width: 0}},
+                                showlegend: false,
+                                hoverinfo: 'skip'
+                            }});
+                            traces.push({{
+                                x: coneXLower,
+                                y: coneYLower,
+                                mode: 'lines',
+                                line: {{width: 0}},
+                                fill: 'tonexty',
+                                fillcolor: 'rgba(214, 39, 40, 0.12)',
+                                name: '95% Confidence'
+                            }});
+                        }}
+                    }}
+                }}
+
+                // Trace 7: Critical threshold line (40% reduction)
+                const xMin = timestamps[0];
+                const xMax = predictionDate || timestamps[timestamps.length - 1];
+                traces.push({{
+                    x: [xMin, xMax],
+                    y: [thresholdPerm, thresholdPerm],
+                    mode: 'lines',
+                    line: {{color: 'rgba(220, 53, 69, 0.7)', width: 2, dash: 'longdash'}},
+                    name: `Critical Threshold (${{thresholdPerm.toFixed(1)}} LMH/bar, -40%)`
+                }});
+
+                // Trace 8+: Chemical cleaning vertical lines
+                if (chemicalCleanings.length > 0 && csPerms.length > 0) {{
+                    const yRangeMax = Math.max(...csPerms) * 1.3;
+                    const yRangeMin = Math.min(...csPerms) * 0.7;
+                    chemicalCleanings.forEach((cleanTime, idx) => {{
+                        traces.push({{
+                            x: [cleanTime, cleanTime],
+                            y: [yRangeMin, yRangeMax],
+                            mode: 'lines',
+                            line: {{color: 'rgba(40, 167, 69, 0.6)', width: 1.5, dash: 'dash'}},
+                            name: idx === 0 ? 'Chemical Cleaning' : null,
+                            showlegend: idx === 0,
+                            hovertemplate: 'Chemical Cleaning<br>%{{x}}<extra></extra>'
+                        }});
+                    }});
+                }}
+
+                // Build annotation
+                const slopePerDay = permSlope * 86400;
+                const declineRatePctPerDay = stableStartValue > 0 ? Math.abs(slopePerDay / stableStartValue * 100) : 0;
+                
+                let classification = 'low';
+                let clsColor = '#28a745';
+                if (declineRatePctPerDay >= 1.0) {{ classification = 'critical'; clsColor = '#dc3545'; }}
+                else if (declineRatePctPerDay >= 0.5) {{ classification = 'high'; clsColor = '#fd7e14'; }}
+                else if (declineRatePctPerDay >= 0.1) {{ classification = 'medium'; clsColor = '#ffc107'; }}
+
+                let annText = `<b style="color:${{clsColor}}">⬤ Decline Rate: ${{classification.toUpperCase()}}</b>`;
+                annText += `<br><b>Slope:</b> ${{slopePerDay.toFixed(4)}} LMH/bar/day (R²=${{rSquared.toFixed(3)}})`;
+                annText += `<br><b>Decline:</b> ${{declineRatePctPerDay.toFixed(2)}}% per day`;
+                
+                // Time to critical threshold
+                if (permSlope < 0 && csPerms.length > 0) {{
+                    const currentFit = csPerms[csPerms.length - 1];
+                    const daysToCritical = (thresholdPerm - currentFit) / slopePerDay;
+                    if (daysToCritical > 0) {{
+                        annText += `<br><b>Time to critical:</b> ${{Math.round(daysToCritical)}} days`;
+                        const thresholdDate = new Date(new Date(csTimestamps[csTimestamps.length - 1]).getTime() + daysToCritical * 86400000);
+                        annText += `<br><b>Threshold date:</b> ${{thresholdDate.toISOString().split('T')[0]}}`;
+                    }}
+                }}
+                
+                annText += `<br><b>Model:</b> ${{modelType}}`;
+
+                const layout = {{
+                    title: '<b>Permeability TC Forecast — Membrane Performance Trend</b>',
+                    xaxis: {{
+                        title: 'Time',
+                        gridcolor: 'rgba(200, 200, 200, 0.3)',
+                        showgrid: true,
+                        rangeselector: {{
+                            buttons: [
+                                {{count: 1, label: '1h', step: 'hour', stepmode: 'backward'}},
+                                {{count: 12, label: '12h', step: 'hour', stepmode: 'backward'}},
+                                {{count: 1, label: '1d', step: 'day', stepmode: 'backward'}},
+                                {{count: 7, label: '1w', step: 'day', stepmode: 'backward'}},
+                                {{count: 1, label: '1m', step: 'month', stepmode: 'backward'}},
+                                {{count: 6, label: '6m', step: 'month', stepmode: 'backward'}},
+                                {{step: 'all', label: 'All'}}
+                            ]
+                        }},
+                        rangeslider: {{visible: true, thickness: 0.05}}
+                    }},
+                    yaxis: {{
+                        title: 'Permeability TC (LMH/bar)',
+                        gridcolor: 'rgba(200, 200, 200, 0.3)',
+                        showgrid: true,
+                        fixedrange: false
+                    }},
+                    height: 750,
+                    margin: {{t: 80, b: 100, l: 80, r: 150}},
+                    showlegend: true,
+                    hovermode: 'x unified',
+                    dragmode: 'zoom',
+                    legend: {{
+                        orientation: 'v',
+                        yanchor: 'top',
+                        y: 1,
+                        xanchor: 'left',
+                        x: 1.08
+                    }},
+                    annotations: [{{
+                        x: 0.98,
+                        y: 0.98,
+                        xref: 'paper',
+                        yref: 'paper',
+                        text: annText,
+                        showarrow: false,
+                        bgcolor: 'rgba(255, 255, 255, 0.92)',
+                        bordercolor: 'rgba(0, 0, 0, 0.3)',
+                        borderwidth: 1,
+                        borderpad: 8,
+                        font: {{size: 11}},
+                        align: 'left',
+                        xanchor: 'right',
+                        yanchor: 'top'
+                    }}]
+                }};
+
+                Plotly.newPlot('plot-permeability-forecast', traces, layout, {{responsive: true}});
+            }}
+"""
+
     # Add cycle comparison plot
     if cycles:
         cycle_ids = [c["cycle_id"] for c in cycles]
@@ -3113,6 +3837,18 @@ def run_dashboard_app(config_path: str = "config.yaml") -> list:
     )
     if tmp_file:
         generated_files.append(tmp_file)
+
+    # Create Permeability TC forecast plot
+    perm_file = create_permeability_forecast_plot(
+        df_full,
+        plots_dir,
+        config,
+        forecasts.get("permeability"),
+        cycles,
+        chemical_cleanings,
+    )
+    if perm_file:
+        generated_files.append(perm_file)
 
     # Create cycle comparison
     if cycles:
