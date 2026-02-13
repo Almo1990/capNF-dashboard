@@ -108,7 +108,7 @@ validation:
 # ==============================================================================
 preprocessing:
   # Data filtering for visualization
-  baseline_start: "2026-01-28 15:10:00"  # Filter visualization data from this date
+  baseline_start: "2024-01-01 00:00:00"  # Filter visualization data from this date
   
   # Downsampling for visualization (LTTB algorithm)
   downsample_limits:
