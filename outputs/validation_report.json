@@ -1,10 +1,10 @@
 {
-  "total_rows_input": 195765,
-  "total_rows_output": 183468,
-  "rows_removed": 12297,
+  "total_rows_input": 208224,
+  "total_rows_output": 195518,
+  "rows_removed": 12706,
   "outliers_per_parameter": {
-    "TMP": 655,
-    "Permeability TC": 10706,
+    "TMP": 698,
+    "Permeability TC": 11072,
     "Mem. retention": 38,
     "Sys. retention": 26,
     "Flux": 1,
@@ -17,17 +17,17 @@
   "missing_values": {
     "TimeStamp": 0.0,
     "TMP": 0.0,
-    "Permeability": 5.296656705744132,
-    "Permeability TC": 5.296656705744132,
+    "Permeability": 5.152624097126171,
+    "Permeability TC": 5.152624097126171,
     "dP module": 0.0,
     "dP module TC": 0.0,
     "dP module TC abs": 0.0,
     "Flux": 0.0,
     "Vcrossflow": 0.0,
-    "Recovery": 0.000510816540239573,
+    "Recovery": 0.00048025203626863374,
     "Active program number": 0.0,
-    "Mem. retention": 0.15069087937067402,
-    "Sys. retention": 0.1512016959109136,
+    "Mem. retention": 0.14167435069924697,
+    "Sys. retention": 0.1421546027355156,
     "00-FIT-01": 0.0,
     "01-FIT-01": 0.0,
     "01-FIT-02": 0.0,
@@ -89,8 +89,8 @@
     "Total permeate BW": 0.0,
     "Total feed": 0.0,
     "PV used perm dosing": 0.0,
-    "Net recovery": 0.12004188695629965,
-    "Specific_power": 0.002043266160958292,
+    "Net recovery": 0.11285922852312893,
+    "Specific_power": 0.001921008145074535,
     "Filtration timer": 0.0,
     "Chemical timer": 0.0
   },
@@ -104,12 +104,17 @@
       "start": "2026-01-28 10:29:54.860000",
       "end": "2026-01-28 12:11:05.120000",
       "minutes": 101.171
+    },
+    {
+      "start": "2026-02-08 12:59:57.740000",
+      "end": "2026-02-12 07:39:40.470000",
+      "minutes": 5439.712166666666
     }
   ],
   "time_range_start": "2026-01-28 02:57:24.090000",
-  "time_range_end": "2026-02-08 12:58:27.630000",
+  "time_range_end": "2026-02-13 00:59:06.270000",
   "warnings": [
-    "Detected 2 timestamp gaps",
+    "Detected 3 timestamp gaps",
     "Columns with >5% missing: ['Permeability', 'Permeability TC']"
   ]
 }
