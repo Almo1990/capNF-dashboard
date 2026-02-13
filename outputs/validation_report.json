@@ -1,33 +1,33 @@
 {
-  "total_rows_input": 3849766,
-  "total_rows_output": 1297348,
-  "rows_removed": 2552418,
+  "total_rows_input": 1177562,
+  "total_rows_output": 974357,
+  "rows_removed": 203205,
   "outliers_per_parameter": {
-    "TMP": 72804,
-    "Permeability TC": 2441689,
-    "Mem. retention": 548,
-    "Sys. retention": 92,
-    "Flux": 7,
+    "TMP": 2908,
+    "Permeability TC": 195546,
+    "Mem. retention": 381,
+    "Sys. retention": 42,
+    "Flux": 5,
     "01-TIT-01": 0,
     "Recovery": 0,
-    "Net recovery": 37035,
-    "Specific_power": 243,
+    "Net recovery": 4154,
+    "Specific_power": 169,
     "Vcrossflow": 0
   },
   "missing_values": {
     "TimeStamp": 0.0,
     "TMP": 0.0,
-    "Permeability": 63.32873218787844,
-    "Permeability TC": 63.32873218787844,
+    "Permeability": 16.52176276068691,
+    "Permeability TC": 16.52176276068691,
     "dP module": 0.0,
     "dP module TC": 0.0,
     "dP module TC abs": 0.0,
     "Flux": 0.0,
     "Vcrossflow": 0.0,
-    "Recovery": 0.0004935364902697982,
+    "Recovery": 0.0005095273115131093,
     "Active program number": 0.0,
-    "Mem. retention": 0.042703894210713064,
-    "Sys. retention": 0.04272986981546411,
+    "Mem. retention": 0.025136680701313394,
+    "Sys. retention": 0.02522160191989891,
     "00-FIT-01": 0.0,
     "01-FIT-01": 0.0,
     "01-FIT-02": 0.0,
@@ -89,37 +89,12 @@
     "Total permeate BW": 0.0,
     "Total feed": 0.0,
     "PV used perm dosing": 0.0,
-    "Net recovery": 2.2701120016125653,
-    "Specific_power": 0.0013247558423031425,
+    "Net recovery": 0.07184335092334841,
+    "Specific_power": 0.0022928729018089917,
     "Filtration timer": 0.0,
     "Chemical timer": 0.0
   },
   "timestamp_gaps": [
-    {
-      "start": "2024-04-04 12:15:23.030000",
-      "end": "2024-04-04 12:26:08.540000",
-      "minutes": 10.7585
-    },
-    {
-      "start": "2024-04-04 16:41:45.030000",
-      "end": "2024-04-04 16:54:20.420000",
-      "minutes": 12.589833333333333
-    },
-    {
-      "start": "2024-04-09 09:49:24.580000",
-      "end": "2024-06-05 10:37:46.140000",
-      "minutes": 82128.35933333333
-    },
-    {
-      "start": "2024-06-17 11:34:14.350000",
-      "end": "2024-07-15 09:12:42.240000",
-      "minutes": 40178.46483333334
-    },
-    {
-      "start": "2024-07-17 12:46:08.760000",
-      "end": "2024-07-17 14:00:10.970000",
-      "minutes": 74.03683333333333
-    },
     {
       "start": "2024-12-10 08:29:05.360000",
       "end": "2024-12-10 12:54:20.260000",
@@ -151,10 +126,10 @@
       "minutes": 101.171
     }
   ],
-  "time_range_start": "2024-04-04 15:25:03.240000",
+  "time_range_start": "2024-11-30 06:23:59.720000",
   "time_range_end": "2026-02-13 07:53:41.390000",
   "warnings": [
-    "Detected 11 timestamp gaps",
+    "Detected 6 timestamp gaps",
     "Columns with >5% missing: ['Permeability', 'Permeability TC']"
   ]
 }
